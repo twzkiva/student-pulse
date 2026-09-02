@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Кампус Пульс</string>
+    <string name="title_activity_main">Кампус Пульс</string>
+    <string name="package_name">ua.edu.campus.pulse</string>
+    <string name="custom_url_scheme">ua.edu.campus.pulse</string>
+    <string name="widget_small_name">Кампус Пульс · компактний</string>
+    <string name="widget_medium_name">Кампус Пульс · середній</string>
+    <string name="widget_large_name">Кампус Пульс · великий</string>
+</resources>

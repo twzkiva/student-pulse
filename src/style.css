@@ -1,0 +1,209 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --color-app: #09080d;
+  --color-panel: #121117;
+  --color-panel-raised: #181620;
+  --color-ink: #f7f5ff;
+  --color-muted: #aaa4b8;
+  --color-neon: #b96cff;
+  --color-neon-bright: #d6a5ff;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --surface: #121117;
+  --surface-raised: #181620;
+  --border: rgba(255, 255, 255, 0.09);
+  --muted: #aaa4b8;
+  --violet: #b96cff;
+  --violet-bright: #d6a5ff;
+  --focus: #d9afff;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+  background: #09080d;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background: #09080d;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+}
+
+.app-shell::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 62%);
+  content: "";
+  pointer-events: none;
+}
+
+.ambient {
+  position: fixed;
+  z-index: -1;
+  width: 20rem;
+  height: 20rem;
+  border-radius: 999px;
+  filter: blur(90px);
+  opacity: 0.13;
+  pointer-events: none;
+  animation: ambient-drift 15s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.ambient-one {
+  top: -11rem;
+  right: -10rem;
+  background: #aa4dff;
+}
+
+.ambient-two {
+  top: 34rem;
+  left: -16rem;
+  background: #6f35ff;
+  animation-delay: -7s;
+  animation-direction: alternate-reverse;
+}
+
+.eyebrow {
+  color: var(--violet-bright);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: #c9c4d4;
+  background: rgba(20, 18, 27, 0.72);
+  backdrop-filter: blur(16px);
+  font-size: 0.625rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #52e7a8;
+  box-shadow: 0 0 0.65rem rgba(82, 231, 168, 0.75);
+  animation: status-breathe 2.4s ease-in-out infinite;
+}
+
+.lesson-count {
+  flex: none;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(185, 108, 255, 0.18);
+  border-radius: 999px;
+  color: #c9c2d3;
+  background: rgba(185, 108, 255, 0.07);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.notice {
+  position: fixed;
+  z-index: 70;
+  right: 1rem;
+  bottom: calc(6.4rem + env(safe-area-inset-bottom));
+  left: 1rem;
+  max-width: 26rem;
+  margin-inline: auto;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(185, 108, 255, 0.45);
+  border-radius: 1rem;
+  color: white;
+  background: rgba(22, 19, 30, 0.94);
+  box-shadow: 0 0 1.5rem rgba(185, 108, 255, 0.14);
+  backdrop-filter: blur(16px);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 180ms ease, transform 240ms var(--ease-out);
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(0.75rem);
+}
+
+@keyframes ambient-drift {
+  from { transform: translate3d(-1rem, -0.5rem, 0) scale(0.96); }
+  to { transform: translate3d(1.25rem, 1rem, 0) scale(1.06); }
+}
+
+@keyframes status-breathe {
+  0%, 100% { opacity: 0.72; box-shadow: 0 0 0.45rem rgba(82, 231, 168, 0.5); }
+  50% { opacity: 1; box-shadow: 0 0 0.9rem rgba(82, 231, 168, 0.9); }
+}
+
+@media (min-width: 640px) {
+  .status-pill {
+    font-size: 0.6875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
