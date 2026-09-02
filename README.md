@@ -1,33 +1,72 @@
 # Кампус Пульс
 
-Mobile-first SPA для студентів коледжу на Vue 3, Vite і Tailwind CSS.
+Мобільний застосунок для групи КН-31: поточна пара, живий таймер, парний/непарний тиждень, дзвінки, домашні завдання, зв’язок із куратором, Telegram-бот і Android-віджети.
 
-## Запуск
+## Що вже працює
+
+- Vue 3, Vite, Tailwind CSS 4, mobile-first інтерфейс;
+- встановлення як PWA і робота без інтернету;
+- автоматичне визначення парного/непарного ISO-тижня;
+- окремі розклади для обох типів тижня;
+- динамічний таймер і кольоровий прогрес поточної пари;
+- домашні завдання та повідомлення про помилки через бота;
+- дзвінок куратору одним натисканням;
+- FastAPI + SQLite локально або PostgreSQL на хостингу;
+- нативний Android-проєкт Capacitor;
+- Android-віджети 2×2, 4×2 та 4×4.
+
+## Локальний запуск
 
 ```bash
 npm install
 npm run dev
 ```
 
-Production-збірка:
+Щоб відкрити з телефона в одній Wi-Fi мережі, використайте мережеву адресу, яку покаже Vite, наприклад `http://192.168.0.235:5173`.
 
-```bash
-npm run build
+## API
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\pip.exe install -r requirements.txt
+.\.venv\Scripts\uvicorn.exe app.main:app --reload
 ```
 
-## Структура
+Документація API буде доступна на `http://localhost:8000/docs`. Для підключення вебзастосунку вкажіть `VITE_API_URL=http://localhost:8000` у `.env.local`.
 
-- `src/App.vue` — тестові дані, стан навігації та керування модальним вікном.
-- `src/components/CurrentClassWidget.vue` — таймер і реактивний кольоровий прогрес.
-- `src/components/ScheduleList.vue` — список пар через `v-for`.
-- `src/components/InfoModal.vue` — доступне модальне вікно з фокус-менеджментом.
-- `src/components/BottomNavigation.vue` — нижня мобільна навігація.
-- `src/components/BellSchedule.vue` — розклад дзвінків і тривалість перерв.
-- `src/components/CuratorContact.vue` — швидкий контакт із куратором через телефонний застосунок.
-- `src/data/schedule.js` — тижневий розклад та єдине джерело часу пар.
-- `src/data/contacts.js` — публічні контактні дані для інтерфейсу.
-- `src/style.css` — Tailwind, дизайн-токени, dark theme і safe-area стилі.
+Для production використовуйте PostgreSQL через `DATABASE_URL`. Файл `render.yaml` готує безкоштовний Render Web Service; токен бота та інші секрети додаються лише в налаштуваннях хостингу.
 
-Мокові дані в `App.vue` можна замінити відповіддю Python API без зміни інтерфейсів компонентів.
+## Telegram-бот
 
-Секрети Telegram зберігаються тільки у локальному `.env.local`, який ігнорується Git. Не додавайте до назв секретних змінних префікс `VITE_`, оскільки такі значення потрапляють у браузерну збірку.
+Доступні команди:
+
+- `/today` — розклад на сьогодні;
+- `/week` — розклад поточного тижня;
+- `/report текст` — повідомити про помилку;
+- `/setlesson непарний пн 1 Предмет | 405` — змінити пару (тільки куратор);
+- `/cancel парний пт 4` — скасувати пару (тільки куратор);
+- `/homework Предмет | Завдання | 2026-09-10` — додати завдання (тільки куратор).
+
+Після публікації API підключіть HTTPS webhook:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe scripts\configure_webhook.py https://адреса-api.example
+```
+
+## Android
+
+Потрібні Android Studio, Android SDK і JDK 21. Після їх встановлення:
+
+```powershell
+npm run build
+npx cap sync android
+npx cap open android
+```
+
+В Android Studio виберіть телефон або емулятор і натисніть Run. Для APK: **Build → Build APK(s)**. Після встановлення затисніть порожнє місце на домашньому екрані → **Віджети** → **Кампус Пульс** → оберіть один із трьох розмірів.
+
+## Безпека
+
+`.env.local`, база SQLite та віртуальне Python-середовище ігноруються Git. Не використовуйте префікс `VITE_` для секретів: такі значення потрапляють у браузерний код. Перед production-публікацією потрібно перевипустити Telegram-токен, якщо він коли-небудь надсилався у відкритий чат.
