@@ -47,7 +47,7 @@ function timestampFor(time) {
 }
 
 function buildTimeline(dayKey, weekType = automaticWeekType.value) {
-  const isToday = dayKey === todayKey.value
+  const isToday = dayKey === todayKey.value && weekType === automaticWeekType.value
   const lessons = (schedules.value[weekType]?.[dayKey] ?? []).map((lesson) => ({
     ...lesson,
     startAt: timestampFor(lesson.start),

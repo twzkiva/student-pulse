@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -96,7 +96,7 @@ async def handle_update(update: dict, db: Session) -> None:
 
     today = date.today()
     try:
-        today = date.fromtimestamp(__import__('time').time(), ZoneInfo('Europe/Kyiv'))
+        today = datetime.now(ZoneInfo('Europe/Kyiv')).date()
     except (KeyError, ValueError):
         pass
     week_type = current_week_type(today)
