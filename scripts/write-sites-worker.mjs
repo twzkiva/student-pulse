@@ -1,4 +1,17 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+
+const distUrl = new URL('../dist/', import.meta.url)
+const clientUrl = new URL('../dist/client/', import.meta.url)
+
+await rm(clientUrl, { recursive: true, force: true })
+await mkdir(clientUrl, { recursive: true })
+
+for (const entry of await readdir(distUrl)) {
+  if (['.openai', 'client', 'server'].includes(entry)) continue
+  await cp(new URL(`../dist/${entry}`, import.meta.url), new URL(`../dist/client/${entry}`, import.meta.url), {
+    recursive: true,
+  })
+}
 
 const workerSource = `export default {
   async fetch(request, env) {
