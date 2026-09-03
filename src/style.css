@@ -23,7 +23,7 @@
   --surface-raised: #ffffff;
   --surface-soft: #edf1f7;
   --surface-hover: #e8edf6;
-  --surface-tint: #eaf7fa;
+  --surface-tint: #eef1ff;
   --text-primary: #151923;
   --text-secondary: #5d687c;
   --text-tertiary: #69758a;
@@ -35,7 +35,7 @@
   --accent-soft: rgba(63, 80, 231, 0.09);
   --accent-border: rgba(63, 80, 231, 0.28);
   --accent-glow: rgba(63, 80, 231, 0.24);
-  --success: #16865f;
+  --success: #3f50e7;
   --control-off: #c8cfda;
   --overlay: rgba(18, 24, 39, 0.48);
   --navigation: rgba(255, 255, 255, 0.92);
@@ -61,7 +61,7 @@
   --surface-raised: #1d232c;
   --surface-soft: #151a21;
   --surface-hover: #222a35;
-  --surface-tint: #18262c;
+  --surface-tint: #192233;
   --text-primary: #f6f8fc;
   --text-secondary: #b0b9c8;
   --text-tertiary: #9ca7b8;
@@ -73,7 +73,7 @@
   --accent-soft: rgba(113, 136, 255, 0.13);
   --accent-border: rgba(113, 136, 255, 0.32);
   --accent-glow: rgba(113, 136, 255, 0.24);
-  --success: #4ed5a2;
+  --success: #7188ff;
   --control-off: #3a4350;
   --overlay: rgba(2, 4, 8, 0.7);
   --navigation: rgba(24, 29, 37, 0.92);
@@ -94,7 +94,7 @@
   --surface-raised: #181620;
   --surface-soft: #111016;
   --surface-hover: #211d29;
-  --surface-tint: #17131e;
+  --surface-tint: #18141f;
   --text-primary: #f7f5ff;
   --text-secondary: #b1aabd;
   --text-tertiary: #a29aaa;
@@ -106,7 +106,7 @@
   --accent-soft: rgba(185, 108, 255, 0.12);
   --accent-border: rgba(198, 128, 255, 0.34);
   --accent-glow: rgba(185, 108, 255, 0.48);
-  --success: #52e7a8;
+  --success: #b96cff;
   --control-off: #3a3441;
   --overlay: rgba(4, 3, 7, 0.74);
   --navigation: rgba(17, 15, 22, 0.91);
@@ -237,7 +237,7 @@ button { cursor: pointer; }
 .toast-enter-from,
 .toast-leave-to { opacity: 0; transform: translateY(0.75rem); }
 
-[data-density="compact"] .current-widget { min-height: 13.5rem; padding: 0.9rem; }
+[data-density="compact"] .current-widget { min-height: 11.5rem; padding: 0.75rem; }
 [data-density="compact"] .lesson-card { min-height: 5rem; padding-block: 0.6rem; }
 [data-density="compact"] .quick-actions .action-tile { min-height: 4.7rem; }
 [data-density="compact"] .schedule-section { margin-top: 1.25rem; }

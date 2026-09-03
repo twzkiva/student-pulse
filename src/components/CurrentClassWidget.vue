@@ -30,20 +30,14 @@ const progress = computed(() => {
 })
 
 const progressHue = computed(() => {
-  if (!isCurrent.value) return 276
+  if (!isCurrent.value) return 232
 
   const normalized = progress.value / 100
   if (normalized <= 0.5) {
-    return -5 + (47 - -5) * (normalized / 0.5)
+    return 350 + (286 - 350) * (normalized / 0.5)
   }
 
-  const greenThreshold = 0.8125
-  if (normalized < greenThreshold) {
-    const segment = (normalized - 0.5) / (greenThreshold - 0.5)
-    return 47 + (142 - 47) * segment
-  }
-
-  return 142
+  return 286 + (218 - 286) * ((normalized - 0.5) / 0.5)
 })
 
 const timer = computed(() => {
@@ -140,9 +134,9 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
 <style scoped>
 .current-widget {
   position: relative;
-  min-height: 15.5rem;
+  min-height: 13.2rem;
   overflow: hidden;
-  padding: 1rem;
+  padding: 0.85rem;
   border: 1px solid hsl(var(--progress-hue) 70% 56% / 0.34);
   border-radius: 1.35rem;
   background:
@@ -155,7 +149,7 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
 }
 
 .current-widget.is-next {
-  min-height: 14.25rem;
+  min-height: 12.1rem;
 }
 
 .progress-wash {
@@ -163,19 +157,25 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   inset: 0 auto 0 0;
   width: var(--progress);
   background:
-    linear-gradient(110deg, hsl(var(--progress-hue) 80% 45% / 0.78), hsl(var(--progress-hue) 72% 34% / 0.34) 62%, transparent);
-  box-shadow: 0.75rem 0 2rem hsl(var(--progress-hue) 72% 45% / 0.14);
+    radial-gradient(circle at 22% 22%, hsl(calc(var(--progress-hue) + 24) 92% 72% / 0.3), transparent 46%),
+    linear-gradient(
+      118deg,
+      hsl(var(--progress-hue) 82% 48% / 0.86),
+      hsl(calc(var(--progress-hue) + 18) 78% 45% / 0.62) 52%,
+      hsl(calc(var(--progress-hue) - 16) 72% 40% / 0.24) 88%,
+      transparent
+    );
+  box-shadow: 0.8rem 0 2.2rem hsl(var(--progress-hue) 76% 48% / 0.18);
   transition: width 900ms linear, background 700ms ease;
 }
 
 .progress-wash::after {
   position: absolute;
   top: 0;
-  right: 0;
-  width: 1px;
+  right: -2.5rem;
+  width: 2.5rem;
   height: 100%;
-  background: hsl(var(--progress-hue) 100% 76% / 0.75);
-  box-shadow: 0 0 0.8rem hsl(var(--progress-hue) 90% 64% / 0.55);
+  background: linear-gradient(90deg, hsl(var(--progress-hue) 80% 48% / 0.32), transparent);
   content: '';
 }
 
@@ -218,7 +218,7 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
 
 .timer {
   color: white;
-  font-size: clamp(2.35rem, 11vw, 3.5rem);
+  font-size: clamp(2rem, 9.5vw, 3rem);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: -0.075em;
@@ -229,8 +229,8 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
 .room-orbit {
   position: relative;
   display: grid;
-  width: 3.1rem;
-  height: 3.1rem;
+  width: 2.75rem;
+  height: 2.75rem;
   flex: none;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.25);

@@ -15,7 +15,7 @@ export default defineConfig({
       manifest: {
         name: 'Кампус Пульс',
         short_name: 'Кампус',
-        description: 'Розклад занять, дзвінки та домашні завдання групи КН-31.',
+        description: 'Розклад занять, дзвінки та домашні завдання групи КІ-13.',
         lang: 'uk',
         start_url: '/',
         display: 'standalone',

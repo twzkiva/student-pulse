@@ -305,7 +305,7 @@ watch(
           <div>
             <p class="eyebrow mb-2 flex items-center gap-2">
               <BoltIcon class="h-4 w-4" aria-hidden="true" />
-              КН-31 · Кампус Пульс
+              КІ-13 · Кампус Пульс
             </p>
             <h1 class="app-title">
               Твій навчальний день

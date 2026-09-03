@@ -34,7 +34,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title='Кампус Пульс API',
-    description='API розкладу, домашніх завдань і Telegram-бота для групи КН-31.',
+    description='API розкладу, домашніх завдань і Telegram-бота для групи КІ-13.',
     version='1.0.0',
     lifespan=lifespan,
 )
