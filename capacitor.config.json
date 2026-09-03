@@ -1,7 +1,7 @@
 {
   "appId": "ua.edu.campus.pulse",
   "appName": "Кампус Пульс",
-  "webDir": "dist",
+  "webDir": "dist-mobile",
   "server": {
     "androidScheme": "https"
   }

@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-mobile
 dist-ssr
 *.local
 backend/.venv/
@@ -18,6 +19,7 @@ backend/app/__pycache__/
 **/__pycache__/
 .dev.vars
 .wrangler/
+releases/
 worker-configuration.d.ts
 
 # Editor directories and files

@@ -9,11 +9,15 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
     "mock:telegram": "node scripts/mock-telegram.mjs",
     "build": "vite build && node scripts/write-sites-worker.mjs",
+    "build:mobile": "vite build --mode mobile",
+    "cap:sync": "npm run build:mobile && cap sync",
+    "android:apk": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1",
     "preview": "vite preview"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
     "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
     "@heroicons/vue": "^2.2.0",
     "@tailwindcss/vite": "^4.1.14",
     "drizzle-orm": "^0.45.2",

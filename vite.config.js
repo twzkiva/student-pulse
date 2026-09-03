@@ -4,12 +4,15 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { sites } from '@openai/sites-vite-plugin'
 
-export default defineConfig({
-  plugins: [
-    vue(),
-    tailwindcss(),
-    sites(),
-    VitePWA({
+export default defineConfig(({ mode }) => {
+  const isMobile = mode === 'mobile'
+
+  return {
+    plugins: [
+      vue(),
+      tailwindcss(),
+      !isMobile && sites(),
+      VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
@@ -46,9 +49,13 @@ export default defineConfig({
           },
         ],
       },
-    }),
-  ],
-  server: {
-    host: '0.0.0.0',
-  },
+      }),
+    ],
+    build: {
+      outDir: isMobile ? 'dist-mobile' : 'dist',
+    },
+    server: {
+      host: '0.0.0.0',
+    },
+  }
 })
