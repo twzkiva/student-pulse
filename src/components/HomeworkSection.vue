@@ -14,7 +14,7 @@ defineProps({
     </div>
     <div class="min-w-0 flex-1">
       <p class="eyebrow mb-2">Домашні завдання</p>
-      <h2 id="homework-title" class="text-base font-bold text-white">
+      <h2 id="homework-title" class="text-base font-bold text-ink">
         {{ items.length ? `Активних завдань: ${items.length}` : 'Поки що порожньо' }}
       </h2>
       <div v-if="items.length" class="mt-3 grid gap-2">
@@ -40,10 +40,10 @@ defineProps({
   display: flex;
   gap: 0.9rem;
   padding: 1rem;
-  border: 1px solid rgba(185, 108, 255, 0.18);
+  border: 1px solid var(--border);
   border-radius: 1.25rem;
-  background: linear-gradient(145deg, rgba(26, 22, 34, 0.92), rgba(13, 12, 18, 0.96));
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.045);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 .section-icon {
   display: grid;
@@ -51,10 +51,10 @@ defineProps({
   height: 2.6rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgba(185, 108, 255, 0.24);
+  border: 1px solid var(--accent-border);
   border-radius: 0.85rem;
-  color: #d6a5ff;
-  background: rgba(185, 108, 255, 0.09);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .bot-link {
   display: inline-flex;
@@ -62,21 +62,21 @@ defineProps({
   align-items: center;
   gap: 0.45rem;
   padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(185, 108, 255, 0.28);
+  border: 1px solid var(--accent-border);
   border-radius: 0.75rem;
-  color: #e4c8ff;
-  background: rgba(185, 108, 255, 0.1);
+  color: var(--accent);
+  background: var(--accent-soft);
   font-size: 0.72rem;
   font-weight: 700;
   text-decoration: none;
 }
 .task-row {
   padding: 0.75rem;
-  border: 1px solid rgba(255,255,255,.07);
+  border: 1px solid var(--border-soft);
   border-radius: .8rem;
-  background: rgba(255,255,255,.025);
+  background: var(--surface-soft);
   font-size: .75rem;
 }
-.task-row p { margin-top: .25rem; color: #aaa4b8; }
-.task-date { float: right; color: #d6a5ff; font-size: .65rem; }
+.task-row p { margin-top: .25rem; color: var(--text-secondary); }
+.task-date { float: right; color: var(--accent); font-size: .65rem; }
 </style>

@@ -84,7 +84,7 @@ onBeforeUnmount(() => {
               <p class="mb-2 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-neon-bright">
                 Деталі пари
               </p>
-              <h2 id="modal-title" class="text-xl font-bold tracking-[-0.03em] text-white">
+              <h2 id="modal-title" class="text-xl font-bold tracking-[-0.03em] text-ink">
                 {{ lesson.subject }}
               </h2>
               <p id="modal-description" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted">
@@ -117,9 +117,9 @@ onBeforeUnmount(() => {
               </div>
               <div>
                 <p class="info-label">Викладач</p>
-                <h3 class="mt-1 text-sm font-semibold text-white">{{ lesson.teacher }}</h3>
-                <p class="mt-3 text-xs font-semibold text-white/60">Вимоги до здачі</p>
-                <p class="mt-1 text-sm leading-6 text-[#c6c0cf]">{{ lesson.dossier }}</p>
+                <h3 class="mt-1 text-sm font-semibold text-ink">{{ lesson.teacher }}</h3>
+                <p class="detail-caption mt-3 text-xs font-semibold">Вимоги до здачі</p>
+                <p class="detail-copy mt-1 text-sm leading-6">{{ lesson.dossier }}</p>
               </div>
             </article>
 
@@ -129,8 +129,8 @@ onBeforeUnmount(() => {
               </div>
               <div>
                 <p class="info-label">Навігація</p>
-                <h3 class="mt-1 text-sm font-semibold text-white">Як знайти аудиторію {{ lesson.room }}</h3>
-                <p class="mt-2 text-sm leading-6 text-[#c6c0cf]">{{ lesson.route }}</p>
+                <h3 class="mt-1 text-sm font-semibold text-ink">Як знайти аудиторію {{ lesson.room }}</h3>
+                <p class="detail-copy mt-2 text-sm leading-6">{{ lesson.route }}</p>
               </div>
             </article>
           </div>
@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
   align-items: flex-end;
   justify-content: center;
   padding: 0.75rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
-  background: rgba(4, 3, 7, 0.74);
+  background: var(--overlay);
   backdrop-filter: blur(12px);
 }
 
@@ -164,14 +164,10 @@ onBeforeUnmount(() => {
   max-height: min(43rem, calc(100svh - 1.5rem));
   overflow-y: auto;
   padding: 1.25rem;
-  border: 1px solid rgba(197, 124, 255, 0.7);
+  border: 1px solid var(--accent-border);
   border-radius: 1.5rem;
-  background:
-    linear-gradient(145deg, rgba(29, 24, 36, 0.99), rgba(12, 11, 16, 0.99));
-  box-shadow:
-    0 1.75rem 6rem rgba(0, 0, 0, 0.58),
-    0 0 2.5rem rgba(185, 108, 255, 0.2),
-    inset 0 1px rgba(255, 255, 255, 0.08);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-modal);
 }
 
 .modal-glow {
@@ -181,7 +177,7 @@ onBeforeUnmount(() => {
   width: 18rem;
   height: 11rem;
   border-radius: 50%;
-  background: rgba(185, 108, 255, 0.22);
+  background: var(--accent-soft);
   filter: blur(52px);
   transform: translateX(-50%);
   pointer-events: none;
@@ -193,17 +189,17 @@ onBeforeUnmount(() => {
   height: 3rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 0.875rem;
-  color: white;
-  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-primary);
+  background: var(--surface-soft);
   transition: border-color 180ms ease, background-color 180ms ease;
 }
 
 .icon-close:hover,
 .icon-close:active {
-  border-color: rgba(214, 165, 255, 0.5);
-  background: rgba(185, 108, 255, 0.12);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
 }
 
 .info-block {
@@ -211,9 +207,9 @@ onBeforeUnmount(() => {
   grid-template-columns: 2.5rem minmax(0, 1fr);
   gap: 0.875rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--border);
   border-radius: 1.125rem;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--surface-soft);
 }
 
 .info-icon {
@@ -221,14 +217,14 @@ onBeforeUnmount(() => {
   width: 2.5rem;
   height: 2.5rem;
   place-items: center;
-  border: 1px solid rgba(185, 108, 255, 0.22);
+  border: 1px solid var(--accent-border);
   border-radius: 0.8rem;
-  color: #d6a5ff;
-  background: rgba(185, 108, 255, 0.09);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .info-label {
-  color: #d6a5ff;
+  color: var(--accent);
   font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -242,11 +238,10 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   margin-top: 1rem;
-  border: 1px solid rgba(214, 165, 255, 0.45);
+  border: 1px solid var(--accent);
   border-radius: 1rem;
-  color: #110b17;
-  background: linear-gradient(135deg, #d6a5ff, #a94fff);
-  box-shadow: 0 0 1.5rem rgba(185, 108, 255, 0.22);
+  color: var(--on-accent);
+  background: var(--accent);
   font-family: inherit;
   font-size: 0.875rem;
   font-weight: 700;
@@ -256,8 +251,11 @@ onBeforeUnmount(() => {
 .close-button:hover,
 .close-button:active {
   filter: brightness(1.08);
-  box-shadow: 0 0 2rem rgba(185, 108, 255, 0.32);
+  background: var(--accent-hover);
 }
+
+.detail-caption,
+.detail-copy { color: var(--text-secondary); }
 
 .modal-enter-active,
 .modal-leave-active {

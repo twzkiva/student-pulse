@@ -76,10 +76,8 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
     aria-labelledby="current-subject"
   >
     <div class="progress-wash" aria-hidden="true"></div>
-    <div class="tech-grid" aria-hidden="true"></div>
-
     <div class="relative z-10">
-      <div class="mb-5 flex items-center justify-between gap-3">
+      <div class="mb-4 flex items-center justify-between gap-3">
         <span class="current-label">
           <span class="current-pulse" aria-hidden="true"></span>
           {{ isCurrent ? 'Поточна пара' : 'Наступна пара' }}
@@ -87,7 +85,7 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
         <span class="phase-label">{{ phaseLabel }}</span>
       </div>
 
-      <div class="mb-6">
+      <div class="mb-5">
         <p class="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/65">
           {{ isCurrent ? 'До завершення' : 'До початку' }}
         </p>
@@ -99,7 +97,7 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
         </p>
       </div>
 
-      <div class="mb-5 h-px bg-white/16"></div>
+      <div class="mb-4 h-px bg-white/16"></div>
 
       <div class="flex items-end justify-between gap-4">
         <div class="min-w-0">
@@ -123,7 +121,7 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
         </div>
       </div>
 
-      <div v-if="isCurrent" class="mt-5" aria-hidden="true">
+      <div v-if="isCurrent" class="mt-4" aria-hidden="true">
         <div class="progress-track">
           <span class="progress-point progress-point-start"></span>
           <span class="progress-point progress-point-middle"></span>
@@ -142,24 +140,22 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
 <style scoped>
 .current-widget {
   position: relative;
-  min-height: 20rem;
+  min-height: 15.5rem;
   overflow: hidden;
-  padding: 1.1rem;
-  border: 1px solid hsl(var(--progress-hue) 95% 62% / 0.48);
-  border-radius: 1.5rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--progress-hue) 70% 56% / 0.34);
+  border-radius: 1.35rem;
   background:
-    radial-gradient(circle at 90% 12%, hsl(var(--progress-hue) 100% 62% / 0.12), transparent 38%),
-    linear-gradient(145deg, #17131d, #0d0c12 74%);
+    linear-gradient(145deg, var(--widget-base), var(--widget-base-end) 76%);
   box-shadow:
-    0 1.5rem 5rem rgba(0, 0, 0, 0.42),
-    0 0 2.25rem hsl(var(--progress-hue) 96% 54% / 0.15),
+    var(--shadow-md),
     inset 0 1px rgba(255, 255, 255, 0.08);
   transition: border-color 600ms ease, box-shadow 600ms ease, transform 260ms ease;
   animation: widget-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) 40ms both;
 }
 
 .current-widget.is-next {
-  min-height: 17.25rem;
+  min-height: 14.25rem;
 }
 
 .progress-wash {
@@ -167,20 +163,9 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   inset: 0 auto 0 0;
   width: var(--progress);
   background:
-    linear-gradient(115deg, hsl(var(--progress-hue) 98% 48% / 0.76), hsl(var(--progress-hue) 96% 38% / 0.34) 58%, transparent),
-    radial-gradient(circle at 35% 35%, hsl(var(--progress-hue) 100% 70% / 0.38), transparent 58%);
-  box-shadow: 1.25rem 0 3rem hsl(var(--progress-hue) 98% 52% / 0.22);
+    linear-gradient(110deg, hsl(var(--progress-hue) 80% 45% / 0.78), hsl(var(--progress-hue) 72% 34% / 0.34) 62%, transparent);
+  box-shadow: 0.75rem 0 2rem hsl(var(--progress-hue) 72% 45% / 0.14);
   transition: width 900ms linear, background 700ms ease;
-  animation: energy-breathe 4.8s ease-in-out infinite;
-}
-
-.progress-wash::before {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.16) 48%, transparent 66%);
-  content: '';
-  transform: translateX(-130%);
-  animation: energy-sweep 5.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 .progress-wash::after {
@@ -190,20 +175,8 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   width: 1px;
   height: 100%;
   background: hsl(var(--progress-hue) 100% 76% / 0.75);
-  box-shadow: 0 0 1.1rem hsl(var(--progress-hue) 100% 64% / 0.9);
+  box-shadow: 0 0 0.8rem hsl(var(--progress-hue) 90% 64% / 0.55);
   content: '';
-}
-
-.tech-grid {
-  position: absolute;
-  inset: 0;
-  opacity: 0.22;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 2rem 2rem;
-  mask-image: linear-gradient(125deg, black, transparent 78%);
-  animation: grid-drift 18s linear infinite;
 }
 
 .current-label,
@@ -223,7 +196,7 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   gap: 0.5rem;
   padding: 0.45rem 0.65rem;
   color: white;
-  background: rgba(8, 7, 11, 0.38);
+  background: var(--widget-chip);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(12px);
 }
@@ -233,25 +206,24 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   height: 0.4rem;
   border-radius: 999px;
   background: white;
-  box-shadow: 0 0 0.65rem white;
-  animation: pulse 1.8s ease-in-out infinite;
+  box-shadow: 0 0 0.45rem white;
 }
 
 .phase-label {
   min-height: 1.875rem;
   padding: 0.45rem 0.65rem;
   color: rgba(255, 255, 255, 0.72);
-  background: rgba(8, 7, 11, 0.3);
+  background: var(--widget-chip);
 }
 
 .timer {
   color: white;
-  font-size: clamp(2.55rem, 12vw, 4.05rem);
+  font-size: clamp(2.35rem, 11vw, 3.5rem);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: -0.075em;
   line-height: 0.92;
-  text-shadow: 0 0 2rem hsl(var(--progress-hue) 100% 72% / 0.3);
+  text-shadow: 0 0 1.25rem hsl(var(--progress-hue) 80% 72% / 0.18);
 }
 
 .room-orbit {
@@ -262,14 +234,13 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   flex: none;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 50%;
+  border-radius: 0.9rem;
   color: white;
-  background: rgba(9, 8, 13, 0.36);
+  background: var(--widget-chip);
   box-shadow: inset 0 0 1.25rem rgba(255, 255, 255, 0.06);
   font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
-  animation: room-float 4.6s ease-in-out infinite;
 }
 
 .room-orbit.wide {
@@ -278,24 +249,11 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   font-size: 0.625rem;
 }
 
-.room-orbit.wide::after {
-  animation: none;
-}
-
-.room-orbit::after {
-  position: absolute;
-  inset: -0.35rem;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
-  border-radius: inherit;
-  content: '';
-  animation: orbit-spin 16s linear infinite;
-}
-
 .progress-track {
   position: relative;
   height: 0.25rem;
   border-radius: 999px;
-  background: rgba(8, 7, 11, 0.38);
+  background: var(--widget-chip);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
@@ -317,7 +275,7 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
   height: 0.45rem;
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 50%;
-  background: #17131d;
+  background: var(--widget-base);
   transform: translate(-50%, -50%);
 }
 
@@ -325,46 +283,17 @@ const roomIsWide = computed(() => props.lesson.room.length > 5)
 .progress-point-middle { left: 50%; }
 .progress-point-end { left: 100%; }
 
-@keyframes pulse {
-  50% { opacity: 0.48; transform: scale(0.8); }
-}
-
 @keyframes widget-enter {
   from { opacity: 0; translate: 0 1rem; scale: 0.985; }
   to { opacity: 1; translate: 0 0; scale: 1; }
-}
-
-@keyframes energy-breathe {
-  0%, 100% { opacity: 0.82; }
-  50% { opacity: 1; }
-}
-
-@keyframes energy-sweep {
-  0%, 55% { transform: translateX(-130%); opacity: 0; }
-  62% { opacity: 1; }
-  82%, 100% { transform: translateX(130%); opacity: 0; }
-}
-
-@keyframes grid-drift {
-  from { background-position: 0 0, 0 0; }
-  to { background-position: 2rem 2rem, 2rem 2rem; }
-}
-
-@keyframes room-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-0.22rem); }
-}
-
-@keyframes orbit-spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (hover: hover) {
   .current-widget:hover {
     transform: translateY(-2px);
     box-shadow:
-      0 1.75rem 5.5rem rgba(0, 0, 0, 0.46),
-      0 0 2.75rem hsl(var(--progress-hue) 96% 54% / 0.2),
+      var(--shadow-md),
+      0 0 1.5rem hsl(var(--progress-hue) 72% 54% / 0.1),
       inset 0 1px rgba(255, 255, 255, 0.1);
   }
 }

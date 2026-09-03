@@ -1,6 +1,11 @@
 <script setup>
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { BoltIcon, CalendarDaysIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import {
+  BoltIcon,
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  Cog6ToothIcon,
+} from '@heroicons/vue/24/outline'
 import BellSchedule from './components/BellSchedule.vue'
 import BottomNavigation from './components/BottomNavigation.vue'
 import CurrentClassWidget from './components/CurrentClassWidget.vue'
@@ -13,8 +18,10 @@ import { homeworkItems } from './data/homework'
 import { getIsoWeek, weekDays, weeklySchedules, weekTypeFor } from './data/schedule'
 import { loadCampusData, readCachedCampusData } from './services/campusApi'
 import { syncScheduleWidget } from './services/widgetSync'
+import { useAppearancePreferences } from './composables/useAppearancePreferences'
 
 const InfoModal = defineAsyncComponent(() => import('./components/InfoModal.vue'))
+const AppearanceSettings = defineAsyncComponent(() => import('./components/AppearanceSettings.vue'))
 
 const now = ref(Date.now())
 const selectedLesson = ref(null)
@@ -23,8 +30,15 @@ const notice = ref('')
 const schedules = ref(structuredClone(weeklySchedules))
 const homework = ref([...homeworkItems])
 const syncState = ref(import.meta.env.VITE_API_URL ? 'syncing' : 'local')
+const isSettingsOpen = shallowRef(false)
 const botUrl = 'https://t.me/R0zkladYrokiw_bot'
 const curatorPhoneUrl = 'tel:+380668108900'
+const {
+  theme,
+  density,
+  motionEnabled,
+  resetPreferences,
+} = useAppearancePreferences()
 let noticeTimer
 let clockTimer
 
@@ -245,24 +259,36 @@ watch(
 </script>
 
 <template>
-  <div class="app-shell min-h-svh bg-app text-ink selection:bg-violet-400/30">
+  <div class="app-shell min-h-svh bg-app text-ink">
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
-    <main class="relative z-10 mx-auto w-full max-w-[620px] px-4 pb-32 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6">
-      <header class="app-header mb-5 flex items-start justify-between gap-4">
-        <div>
-          <p class="eyebrow mb-2 flex items-center gap-2">
-            <BoltIcon class="h-4 w-4" aria-hidden="true" />
-            Кампус Пульс
-          </p>
-          <h1 class="text-[1.4rem] font-bold leading-tight tracking-[-0.04em] text-white sm:text-[1.55rem]">
-            Привіт <span aria-hidden="true">👋</span>
-          </h1>
-          <p class="mt-1 text-sm font-medium text-muted">{{ formattedDate }} · КН-31</p>
+    <main class="relative z-10 mx-auto w-full max-w-[680px] px-4 pb-32 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
+      <header class="app-header mb-5">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="eyebrow mb-2 flex items-center gap-2">
+              <BoltIcon class="h-4 w-4" aria-hidden="true" />
+              КН-31 · Кампус Пульс
+            </p>
+            <h1 class="app-title">
+              Твій навчальний день
+            </h1>
+            <p class="mt-1 text-sm font-medium text-muted">{{ formattedDate }}</p>
+          </div>
+
+          <button
+            class="settings-trigger"
+            type="button"
+            aria-label="Відкрити налаштування вигляду"
+            :aria-expanded="isSettingsOpen"
+            @click="isSettingsOpen = true"
+          >
+            <Cog6ToothIcon class="h-5 w-5" aria-hidden="true" />
+          </button>
         </div>
 
-        <div class="status-pill" :aria-label="`Статус синхронізації: ${syncLabel}`">
+        <div class="status-line" :aria-label="`Статус синхронізації: ${syncLabel}`">
           <span class="status-dot" aria-hidden="true"></span>
           <span>{{ syncLabel }}</span>
         </div>
@@ -283,7 +309,7 @@ watch(
           <p class="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.14em] text-neon-bright">
             Навчальний день
           </p>
-          <h2 id="day-finished-title" class="text-lg font-bold text-white">
+          <h2 id="day-finished-title" class="text-lg font-bold text-ink">
             {{ todayKey ? 'На сьогодні пари завершено' : 'Сьогодні вихідний' }}
           </h2>
           <p class="mt-1 text-sm text-muted">Можна переглянути розклад на інший день нижче.</p>
@@ -299,7 +325,7 @@ watch(
               <CalendarDaysIcon class="h-4 w-4" aria-hidden="true" />
               Твій тиждень
             </p>
-            <h2 id="schedule-title" class="text-xl font-bold tracking-[-0.03em] text-white">
+            <h2 id="schedule-title" class="text-xl font-bold tracking-[-0.03em] text-ink">
               {{ activeDay.label }}
             </h2>
           </div>
@@ -339,7 +365,7 @@ watch(
         <CuratorContact id="curator-contact" class="mt-4 scroll-mt-5" />
       </section>
 
-      <footer class="mt-10 border-t border-white/8 py-6 text-center text-xs leading-5 text-muted">
+      <footer class="app-footer mt-10 py-6 text-center text-xs leading-5 text-muted">
         Працює навіть без інтернету<br />Оновлення розкладу — через Telegram-бота
       </footer>
     </main>
@@ -357,6 +383,18 @@ watch(
       :lesson="selectedLesson"
       @close="closeLessonInfo"
     />
+
+    <AppearanceSettings
+      v-if="isSettingsOpen"
+      :theme="theme"
+      :density="density"
+      :motion-enabled="motionEnabled"
+      @update:theme="theme = $event"
+      @update:density="density = $event"
+      @update:motion-enabled="motionEnabled = $event"
+      @reset="resetPreferences"
+      @close="isSettingsOpen = false"
+    />
   </div>
 </template>
 
@@ -367,9 +405,9 @@ watch(
   gap: 0.35rem;
   margin-bottom: 0.75rem;
   padding: 0.3rem;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--border);
   border-radius: 1rem;
-  background: rgba(18, 16, 23, 0.78);
+  background: var(--surface-soft);
   animation: content-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
 }
 
@@ -380,7 +418,7 @@ watch(
   place-items: center;
   border: 0;
   border-radius: 0.75rem;
-  color: #8f899a;
+  color: var(--text-secondary);
   background: transparent;
   font-family: inherit;
   font-size: 0.75rem;
@@ -389,14 +427,14 @@ watch(
 }
 
 .day-tab:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-primary);
+  background: var(--surface-hover);
 }
 
 .day-tab.active {
-  color: white;
-  background: rgba(185, 108, 255, 0.15);
-  box-shadow: inset 0 0 0 1px rgba(198, 128, 255, 0.28);
+  color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--accent-border);
   animation: tab-pop 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -410,8 +448,8 @@ watch(
   width: 0.25rem;
   height: 0.25rem;
   border-radius: 50%;
-  background: #c47cff;
-  box-shadow: 0 0 0.5rem #b96cff;
+  background: var(--accent);
+  box-shadow: 0 0 0.5rem var(--accent-glow);
   animation: today-pulse 2s ease-in-out infinite;
 }
 
@@ -421,12 +459,12 @@ watch(
   align-items: center;
   gap: 1rem;
   padding: 1.25rem;
-  border: 1px solid rgba(185, 108, 255, 0.24);
+  border: 1px solid var(--accent-border);
   border-radius: 1.5rem;
   background:
-    radial-gradient(circle at 10% 40%, rgba(185, 108, 255, 0.13), transparent 34%),
-    linear-gradient(145deg, #17131d, #0d0c12 74%);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+    linear-gradient(135deg, var(--accent-soft), transparent 58%),
+    var(--surface);
+  box-shadow: var(--shadow-sm);
   animation: content-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
 }
 
@@ -436,11 +474,55 @@ watch(
   height: 3rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgba(185, 108, 255, 0.3);
+  border: 1px solid var(--accent-border);
   border-radius: 1rem;
-  color: #d6a5ff;
-  background: rgba(185, 108, 255, 0.1);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
+
+.app-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+}
+
+.settings-trigger {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  color: var(--text-primary);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.settings-trigger:hover,
+.settings-trigger:active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.settings-trigger:active { opacity: 0.72; }
+
+.status-line {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 650;
+}
+
+.app-footer { border-top: 1px solid var(--border); }
 
 .app-header {
   animation: content-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;

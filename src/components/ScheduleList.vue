@@ -32,21 +32,21 @@ function stateClass(lesson) {
         </div>
 
         <div class="time-column" aria-label="Час пари">
-          <span class="text-sm font-bold tabular-nums text-white">{{ lesson.start }}</span>
+          <span class="text-sm font-bold tabular-nums text-ink">{{ lesson.start }}</span>
           <span class="time-line" aria-hidden="true"></span>
-          <span class="text-[0.6875rem] font-medium tabular-nums text-white/45">{{ lesson.end }}</span>
+          <span class="time-end text-[0.6875rem] font-medium tabular-nums">{{ lesson.end }}</span>
         </div>
 
         <div class="min-w-0 flex-1">
           <div class="mb-1.5 flex items-start justify-between gap-2">
-            <h3 class="min-w-0 text-[0.9375rem] font-semibold leading-snug text-white">
+            <h3 class="min-w-0 text-[0.9375rem] font-semibold leading-snug text-ink">
               {{ lesson.subject }}
             </h3>
             <span class="state-badge">{{ lesson.state }}</span>
           </div>
 
           <p class="flex items-center gap-1.5 text-xs font-medium text-muted">
-            <MapPinIcon class="h-4 w-4 text-white/45" aria-hidden="true" />
+            <MapPinIcon class="h-4 w-4" aria-hidden="true" />
             {{ lesson.isEmpty ? 'Час для відпочинку' : `Аудиторія ${lesson.room}` }}
           </p>
         </div>
@@ -89,10 +89,10 @@ function stateClass(lesson) {
   gap: 0.7rem;
   overflow: hidden;
   padding: 0.8rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--border-soft);
   border-radius: 1.125rem;
-  background: linear-gradient(120deg, rgba(25, 23, 31, 0.9), rgba(15, 14, 19, 0.94));
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  background: var(--surface-tint);
+  box-shadow: var(--shadow-sm);
   transition: border-color 180ms ease, background-color 180ms ease, box-shadow 220ms ease, transform 220ms ease;
   animation: lesson-enter 460ms cubic-bezier(0.22, 1, 0.36, 1) var(--stagger-delay) both;
 }
@@ -106,19 +106,15 @@ function stateClass(lesson) {
 }
 
 .lesson-card.is-current {
-  border-color: rgba(185, 108, 255, 0.48);
-  background:
-    radial-gradient(circle at 8% 50%, rgba(185, 108, 255, 0.15), transparent 30%),
-    linear-gradient(120deg, rgba(30, 24, 38, 0.96), rgba(15, 14, 19, 0.96));
+  border-color: var(--accent-border);
+  background: linear-gradient(100deg, var(--accent-soft), var(--surface));
   box-shadow:
-    0 0 1.5rem rgba(185, 108, 255, 0.08),
-    inset 0 1px rgba(255, 255, 255, 0.06);
+    var(--shadow-sm),
+    inset 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .lesson-card.is-current::before {
-  background: #c47cff;
-  box-shadow: 0 0 0.75rem #b96cff;
-  animation: current-edge 2.4s ease-in-out infinite;
+  background: var(--accent);
 }
 
 .lesson-card.is-complete {
@@ -127,7 +123,7 @@ function stateClass(lesson) {
 
 .lesson-card.is-empty {
   border-style: dashed;
-  background: rgba(16, 15, 20, 0.58);
+  background: var(--surface-soft);
 }
 
 .period-number {
@@ -136,10 +132,10 @@ function stateClass(lesson) {
   height: 1.65rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgba(185, 108, 255, 0.2);
+  border: 1px solid var(--accent-border);
   border-radius: 0.55rem;
-  color: #d6a5ff;
-  background: rgba(185, 108, 255, 0.07);
+  color: var(--accent);
+  background: var(--surface);
   font-size: 0.6875rem;
   font-weight: 700;
 }
@@ -158,15 +154,17 @@ function stateClass(lesson) {
   width: 1rem;
   height: 1px;
   margin-block: 0.25rem;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--border);
 }
+
+.time-end { color: var(--text-secondary); }
 
 .state-badge {
   flex: none;
   padding: 0.25rem 0.4rem;
   border-radius: 0.45rem;
-  color: #a8a1b4;
-  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-secondary);
+  background: var(--surface);
   font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -175,8 +173,8 @@ function stateClass(lesson) {
 }
 
 .is-current .state-badge {
-  color: #e4c5ff;
-  background: rgba(185, 108, 255, 0.16);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .info-button {
@@ -187,10 +185,10 @@ function stateClass(lesson) {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border: 1px solid rgba(185, 108, 255, 0.24);
+  border: 1px solid var(--accent-border);
   border-radius: 0.875rem;
-  color: #d6a5ff;
-  background: rgba(185, 108, 255, 0.08);
+  color: var(--accent);
+  background: var(--surface);
   font-family: inherit;
   font-size: 0.6875rem;
   font-weight: 700;
@@ -203,9 +201,8 @@ function stateClass(lesson) {
 
 .info-button:hover,
 .info-button:active {
-  border-color: rgba(214, 165, 255, 0.68);
-  background: rgba(185, 108, 255, 0.16);
-  box-shadow: 0 0 1rem rgba(185, 108, 255, 0.12);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .info-button:hover svg {
@@ -222,7 +219,7 @@ function stateClass(lesson) {
   align-items: center;
   gap: 0.65rem;
   padding-inline: 0.75rem;
-  color: #706a7c;
+  color: var(--text-tertiary);
   font-size: 0.5625rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -232,7 +229,7 @@ function stateClass(lesson) {
 
 .break-line {
   height: 1px;
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--border-soft);
 }
 
 @keyframes lesson-enter {
@@ -240,18 +237,11 @@ function stateClass(lesson) {
   to { opacity: 1; translate: 0 0; scale: 1; }
 }
 
-@keyframes current-edge {
-  0%, 100% { opacity: 0.55; box-shadow: 0 0 0.45rem #b96cff; }
-  50% { opacity: 1; box-shadow: 0 0 1rem #c47cff; }
-}
-
 @media (hover: hover) {
   .lesson-card:not(.is-empty):hover {
     transform: translateY(-2px);
-    border-color: rgba(185, 108, 255, 0.22);
-    box-shadow:
-      0 0.8rem 2rem rgba(0, 0, 0, 0.22),
-      inset 0 1px rgba(255, 255, 255, 0.055);
+    border-color: var(--accent-border);
+    box-shadow: var(--shadow-md);
   }
 }
 

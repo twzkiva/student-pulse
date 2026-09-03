@@ -44,10 +44,11 @@ const actions = [
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 1px solid rgba(255,255,255,.075);
+  border: 1px solid var(--border);
   border-radius: 1rem;
-  color: #d6a5ff;
-  background: rgba(19,17,25,.82);
+  color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   font-size: .66rem;
   font-weight: 700;
   line-height: 1.25;
@@ -55,8 +56,8 @@ const actions = [
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 .action-tile:hover {
-  border-color: rgba(185,108,255,.32);
-  background: rgba(185,108,255,.08);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
   transform: translateY(-2px);
 }
 .action-tile:active { transform: scale(.96); }

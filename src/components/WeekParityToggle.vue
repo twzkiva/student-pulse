@@ -31,9 +31,9 @@ defineEmits(['update:modelValue'])
   gap: 0.3rem;
   margin-bottom: 0.65rem;
   padding: 0.28rem;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--border);
   border-radius: 0.95rem;
-  background: rgba(17, 15, 22, 0.74);
+  background: var(--surface-soft);
 }
 .week-option {
   display: inline-flex;
@@ -43,7 +43,7 @@ defineEmits(['update:modelValue'])
   gap: 0.45rem;
   border: 0;
   border-radius: 0.7rem;
-  color: #8f899a;
+  color: var(--text-secondary);
   background: transparent;
   font-family: inherit;
   font-size: 0.72rem;
@@ -51,15 +51,14 @@ defineEmits(['update:modelValue'])
   transition: 180ms ease;
 }
 .week-option.active {
-  color: white;
-  background: linear-gradient(135deg, rgba(185, 108, 255, 0.2), rgba(115, 73, 255, 0.09));
-  box-shadow: inset 0 0 0 1px rgba(198, 128, 255, 0.25);
+  color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--accent-border);
 }
 .auto-dot {
   width: 0.32rem;
   height: 0.32rem;
   border-radius: 50%;
-  background: #52e7a8;
-  box-shadow: 0 0 0.45rem rgba(82, 231, 168, 0.7);
+  background: var(--success);
 }
 </style>

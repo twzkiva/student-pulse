@@ -15,7 +15,7 @@ import { curator } from '../data/contacts'
       <p class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-neon-bright">
         {{ curator.role }}
       </p>
-      <h2 id="curator-title" class="mt-1 text-lg font-bold tracking-[-0.025em] text-white">
+      <h2 id="curator-title" class="mt-1 text-lg font-bold tracking-[-0.025em] text-ink">
         {{ curator.name }}
       </h2>
       <a class="phone-number" :href="`tel:${curator.phone}`">
@@ -42,12 +42,10 @@ import { curator } from '../data/contacts'
   gap: 0.85rem;
   overflow: hidden;
   padding: 1rem;
-  border: 1px solid rgba(185, 108, 255, 0.34);
+  border: 1px solid var(--accent-border);
   border-radius: 1.125rem;
-  background: linear-gradient(125deg, rgba(30, 24, 38, 0.96), rgba(14, 13, 18, 0.96));
-  box-shadow:
-    0 0 1.5rem rgba(185, 108, 255, 0.08),
-    inset 0 1px rgba(255, 255, 255, 0.055);
+  background: linear-gradient(125deg, var(--accent-soft), var(--surface) 68%);
+  box-shadow: var(--shadow-sm);
   transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
   animation: curator-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) 340ms both;
 }
@@ -59,7 +57,7 @@ import { curator } from '../data/contacts'
   width: 9rem;
   height: 9rem;
   border-radius: 50%;
-  background: rgba(185, 108, 255, 0.17);
+  background: var(--accent-soft);
   filter: blur(35px);
   pointer-events: none;
 }
@@ -72,10 +70,10 @@ import { curator } from '../data/contacts'
   height: 3rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgba(185, 108, 255, 0.28);
+  border: 1px solid var(--accent-border);
   border-radius: 0.95rem;
-  color: #d6a5ff;
-  background: rgba(185, 108, 255, 0.1);
+  color: var(--accent);
+  background: var(--surface);
 }
 
 .phone-number {
@@ -83,7 +81,7 @@ import { curator } from '../data/contacts'
   min-height: 2rem;
   margin-top: 0.25rem;
   padding-block: 0.35rem;
-  color: #bdb6c8;
+  color: var(--text-secondary);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
@@ -91,7 +89,7 @@ import { curator } from '../data/contacts'
 }
 
 .phone-number:hover {
-  color: white;
+  color: var(--text-primary);
 }
 
 .call-button {
@@ -105,26 +103,15 @@ import { curator } from '../data/contacts'
   justify-content: center;
   gap: 0.45rem;
   padding-inline: 0.8rem;
-  border: 1px solid rgba(214, 165, 255, 0.42);
+  border: 1px solid var(--accent);
   border-radius: 0.9rem;
-  color: #130b19;
-  background: linear-gradient(135deg, #d8adff, #a950f4);
-  box-shadow: 0 0 1.25rem rgba(185, 108, 255, 0.18);
+  color: var(--on-accent);
+  background: var(--accent);
   font-size: 0.75rem;
   font-weight: 700;
   text-decoration: none;
   transition: filter 180ms ease, box-shadow 180ms ease;
   overflow: hidden;
-}
-
-.call-button::after {
-  position: absolute;
-  inset: -50% -35%;
-  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.55) 49%, transparent 60%);
-  content: '';
-  transform: translateX(-90%) rotate(8deg);
-  animation: call-shine 4.4s ease-in-out infinite;
-  pointer-events: none;
 }
 
 .call-button svg,
@@ -133,14 +120,9 @@ import { curator } from '../data/contacts'
   z-index: 1;
 }
 
-.call-button svg {
-  animation: phone-ring 4.4s ease-in-out infinite;
-}
-
 .call-button:hover,
 .call-button:active {
   filter: brightness(1.08);
-  box-shadow: 0 0 1.75rem rgba(185, 108, 255, 0.3);
 }
 
 .call-button:active {
@@ -152,25 +134,11 @@ import { curator } from '../data/contacts'
   to { opacity: 1; translate: 0 0; scale: 1; }
 }
 
-@keyframes call-shine {
-  0%, 62% { transform: translateX(-90%) rotate(8deg); opacity: 0; }
-  68% { opacity: 1; }
-  84%, 100% { transform: translateX(90%) rotate(8deg); opacity: 0; }
-}
-
-@keyframes phone-ring {
-  0%, 72%, 100% { transform: rotate(0); }
-  76% { transform: rotate(-12deg); }
-  80% { transform: rotate(10deg); }
-  84% { transform: rotate(-7deg); }
-  88% { transform: rotate(0); }
-}
-
 @media (hover: hover) {
   .curator-card:hover {
     transform: translateY(-2px);
-    border-color: rgba(203, 140, 255, 0.5);
-    box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.24), 0 0 2rem rgba(185, 108, 255, 0.11);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-md);
   }
 }
 

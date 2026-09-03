@@ -10,7 +10,7 @@ import { bellSchedule } from '../data/schedule'
         <ClockIcon class="h-5 w-5" />
       </span>
       <span class="min-w-0 flex-1">
-        <span class="block text-sm font-semibold text-white">Дзвінки та перерви</span>
+        <span class="block text-sm font-semibold text-ink">Дзвінки та перерви</span>
         <span class="mt-0.5 block text-[0.6875rem] text-muted">Пара триває 80 хвилин</span>
       </span>
       <ChevronDownIcon class="chevron h-5 w-5" aria-hidden="true" />
@@ -33,17 +33,17 @@ import { bellSchedule } from '../data/schedule'
 <style scoped>
 .bell-card {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--border);
   border-radius: 1.125rem;
-  background: rgba(18, 16, 23, 0.82);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   transition: border-color 220ms ease, box-shadow 220ms ease;
   animation: bell-enter 500ms cubic-bezier(0.22, 1, 0.36, 1) 280ms both;
 }
 
 .bell-card[open] {
-  border-color: rgba(185, 108, 255, 0.14);
-  box-shadow: 0 0 1.5rem rgba(185, 108, 255, 0.045), inset 0 1px rgba(255, 255, 255, 0.045);
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .bell-summary {
@@ -61,7 +61,7 @@ import { bellSchedule } from '../data/schedule'
 }
 
 .bell-summary:focus-visible {
-  outline: 2px solid #d9afff;
+  outline: 2px solid var(--accent);
   outline-offset: -3px;
   border-radius: 1rem;
 }
@@ -72,15 +72,15 @@ import { bellSchedule } from '../data/schedule'
   height: 2.75rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgba(185, 108, 255, 0.22);
+  border: 1px solid var(--accent-border);
   border-radius: 0.85rem;
-  color: #d6a5ff;
-  background: rgba(185, 108, 255, 0.08);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .chevron {
   flex: none;
-  color: #8f899a;
+  color: var(--text-secondary);
   transition: transform 220ms ease;
 }
 
@@ -103,19 +103,19 @@ import { bellSchedule } from '../data/schedule'
   justify-content: space-between;
   gap: 1rem;
   padding-inline: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--border-soft);
   border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--surface-soft);
 }
 
 .period-label {
-  color: #aaa4b8;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .period-time {
-  color: white;
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -125,7 +125,7 @@ import { bellSchedule } from '../data/schedule'
   display: grid;
   height: 1.3rem;
   place-items: center;
-  color: #716b7c;
+  color: var(--text-tertiary);
   font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0.08em;

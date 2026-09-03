@@ -61,12 +61,10 @@ const items = [
   min-height: 4.75rem;
   margin-inline: auto;
   padding: 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 1.4rem;
-  background: rgba(17, 15, 22, 0.88);
-  box-shadow:
-    0 -0.75rem 3rem rgba(0, 0, 0, 0.36),
-    inset 0 1px rgba(255, 255, 255, 0.055);
+  background: var(--navigation);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(22px) saturate(140%);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   pointer-events: auto;
@@ -85,7 +83,7 @@ const items = [
   padding: 0.3rem 0.1rem;
   border: 0;
   border-radius: 1rem;
-  color: #817b8c;
+  color: var(--text-secondary);
   background: transparent;
   font-family: inherit;
   font-size: 0.58rem;
@@ -94,13 +92,13 @@ const items = [
 }
 
 .nav-item:hover {
-  color: #cfc8d9;
-  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-primary);
+  background: var(--surface-hover);
 }
 
 .nav-item.active {
-  color: #e7ccff;
-  background: linear-gradient(180deg, rgba(185, 108, 255, 0.15), rgba(185, 108, 255, 0.055));
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .nav-item.active::before {
@@ -110,11 +108,9 @@ const items = [
   width: 1.5rem;
   height: 2px;
   border-radius: 999px;
-  background: #c47cff;
-  box-shadow: 0 0 0.8rem #b96cff;
+  background: var(--accent);
   content: '';
   transform: translateX(-50%);
-  animation: nav-glow 2.6s ease-in-out infinite;
 }
 
 .icon-shell {
@@ -126,7 +122,6 @@ const items = [
 }
 
 .active .icon-shell {
-  filter: drop-shadow(0 0 0.4rem rgba(185, 108, 255, 0.65));
   animation: nav-pop 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -143,11 +138,6 @@ const items = [
   0% { scale: 0.82; }
   65% { scale: 1.12; }
   100% { scale: 1; }
-}
-
-@keyframes nav-glow {
-  0%, 100% { opacity: 0.55; width: 1.15rem; }
-  50% { opacity: 1; width: 1.75rem; }
 }
 
 @media (min-width: 480px) {
