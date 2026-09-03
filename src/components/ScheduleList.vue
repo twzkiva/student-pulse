@@ -14,7 +14,6 @@ function stateClass(lesson) {
   return {
     'is-current': lesson.state === 'Зараз',
     'is-complete': lesson.state === 'Завершено',
-    'is-empty': lesson.isEmpty,
   }
 }
 </script>
@@ -47,12 +46,11 @@ function stateClass(lesson) {
 
           <p class="flex items-center gap-1.5 text-xs font-medium text-muted">
             <MapPinIcon class="h-4 w-4" aria-hidden="true" />
-            {{ lesson.isEmpty ? 'Час для відпочинку' : `Аудиторія ${lesson.room}` }}
+            Аудиторія {{ lesson.room }}
           </p>
         </div>
 
         <button
-          v-if="!lesson.isEmpty"
           class="info-button"
           type="button"
           :aria-label="`Докладніше про пару «${lesson.subject}»`"
@@ -119,11 +117,6 @@ function stateClass(lesson) {
 
 .lesson-card.is-complete {
   opacity: 0.55;
-}
-
-.lesson-card.is-empty {
-  border-style: dashed;
-  background: var(--surface-soft);
 }
 
 .period-number {
@@ -238,7 +231,7 @@ function stateClass(lesson) {
 }
 
 @media (hover: hover) {
-  .lesson-card:not(.is-empty):hover {
+  .lesson-card:hover {
     transform: translateY(-2px);
     border-color: var(--accent-border);
     box-shadow: var(--shadow-md);

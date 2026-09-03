@@ -33,6 +33,8 @@ const syncState = ref(import.meta.env.VITE_API_URL ? 'syncing' : 'local')
 const isSettingsOpen = shallowRef(false)
 const botUrl = 'https://t.me/R0zkladYrokiw_bot'
 const curatorPhoneUrl = 'tel:+380668108900'
+const isClassPreview = import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get('preview') === 'class'
 const {
   theme,
   density,
@@ -60,23 +62,53 @@ function timestampFor(time) {
   return date.getTime()
 }
 
+function formatClock(timestamp) {
+  return new Intl.DateTimeFormat('uk-UA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(timestamp))
+}
+
 function buildTimeline(dayKey, weekType = automaticWeekType.value) {
   const isToday = dayKey === todayKey.value && weekType === automaticWeekType.value
-  const lessons = (schedules.value[weekType]?.[dayKey] ?? []).map((lesson) => ({
-    ...lesson,
-    startAt: timestampFor(lesson.start),
-    endAt: timestampFor(lesson.end),
-    state: lesson.isEmpty ? 'Вікно' : 'Заплановано',
-  }))
+  const lessons = (schedules.value[weekType]?.[dayKey] ?? [])
+    .filter((lesson) => !lesson.isEmpty)
+    .map((lesson) => ({
+      ...lesson,
+      startAt: timestampFor(lesson.start),
+      endAt: timestampFor(lesson.end),
+      state: 'Заплановано',
+    }))
 
   if (!isToday) return lessons
 
+  if (isClassPreview && lessons.length) {
+    const previewIndex = Math.min(1, lessons.length - 1)
+    const previewStartAt = now.value - 32 * 60 * 1000
+    const previewEndAt = previewStartAt + 80 * 60 * 1000
+
+    return lessons.map((lesson, index) => {
+      if (index < previewIndex) return { ...lesson, state: 'Завершено' }
+      if (index === previewIndex) {
+        return {
+          ...lesson,
+          start: formatClock(previewStartAt),
+          end: formatClock(previewEndAt),
+          startAt: previewStartAt,
+          endAt: previewEndAt,
+          state: 'Зараз',
+        }
+      }
+      return { ...lesson, state: index === previewIndex + 1 ? 'Далі' : 'Пізніше' }
+    })
+  }
+
   const nextLessonIndex = lessons.findIndex(
-    (lesson) => !lesson.isEmpty && now.value < lesson.startAt,
+    (lesson) => now.value < lesson.startAt,
   )
 
   return lessons.map((lesson, index) => {
-    if (lesson.isEmpty) return lesson
     if (now.value >= lesson.startAt && now.value < lesson.endAt) {
       return { ...lesson, state: 'Зараз' }
     }
@@ -95,9 +127,10 @@ const featuredLesson = computed(() => currentLesson.value ?? nextLesson.value)
 const featuredMode = computed(() => (currentLesson.value ? 'current' : 'next'))
 
 const lessonSummary = computed(() => {
-  const lessons = selectedSchedule.value.filter((lesson) => !lesson.isEmpty).length
-  const windows = selectedSchedule.value.filter((lesson) => lesson.isEmpty).length
-  return windows ? `${lessons} пари · ${windows} вікно` : `${lessons} пари`
+  const count = selectedSchedule.value.length
+  if (count === 1) return '1 пара'
+  if (count >= 2 && count <= 4) return `${count} пари`
+  return `${count} пар`
 })
 
 const formattedDate = computed(() => {
@@ -116,6 +149,9 @@ const syncLabel = computed(() => ({
   cached: 'Збережена копія',
   local: 'Доступно офлайн',
 }[syncState.value]))
+const statusDisplayLabel = computed(() => (
+  isClassPreview ? 'Демо поточної пари' : syncLabel.value
+))
 
 const widgetPayload = computed(() => {
   const lesson = featuredLesson.value
@@ -288,9 +324,9 @@ watch(
           </button>
         </div>
 
-        <div class="status-line" :aria-label="`Статус синхронізації: ${syncLabel}`">
+        <div class="status-line" :aria-label="statusDisplayLabel">
           <span class="status-dot" aria-hidden="true"></span>
-          <span>{{ syncLabel }}</span>
+          <span>{{ statusDisplayLabel }}</span>
         </div>
       </header>
 
