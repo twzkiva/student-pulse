@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readdir, rm } from 'node:fs/promises'
 
 const distUrl = new URL('../dist/', import.meta.url)
 const clientUrl = new URL('../dist/client/', import.meta.url)
@@ -13,21 +13,5 @@ for (const entry of await readdir(distUrl)) {
   })
 }
 
-const workerSource = `export default {
-  async fetch(request, env) {
-    if (!env.ASSETS || typeof env.ASSETS.fetch !== 'function') {
-      return new Response('Кампус Пульс: сховище статичних файлів недоступне.', { status: 503 })
-    }
-
-    const response = await env.ASSETS.fetch(request)
-    if (response.status !== 404 || request.method !== 'GET') return response
-
-    const url = new URL(request.url)
-    url.pathname = '/index.html'
-    return env.ASSETS.fetch(new Request(url, request))
-  }
-}
-`
-
 await mkdir(new URL('../dist/server/', import.meta.url), { recursive: true })
-await writeFile(new URL('../dist/server/index.js', import.meta.url), workerSource)
+await cp(new URL('../worker/index.js', import.meta.url), new URL('../dist/server/index.js', import.meta.url))
