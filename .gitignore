@@ -16,6 +16,9 @@ backend/*.db
 backend/__pycache__/
 backend/app/__pycache__/
 **/__pycache__/
+.dev.vars
+.wrangler/
+worker-configuration.d.ts
 
 # Editor directories and files
 .vscode/*

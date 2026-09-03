@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:worker": "wrangler dev --local --config wrangler.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
+    "mock:telegram": "node scripts/mock-telegram.mjs",
     "build": "vite build && node scripts/write-sites-worker.mjs",
     "preview": "vite preview"
   },
@@ -23,6 +26,7 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "drizzle-kit": "^0.31.10",
     "vite": "^8.2.2",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite-plugin-pwa": "^1.3.0",
+    "wrangler": "^4.128.0"
   }
 }

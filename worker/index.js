@@ -132,7 +132,8 @@ function isAdmin(env, message) {
 }
 
 async function sendTelegram(env, chatId, text) {
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  const apiBaseUrl = String(env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org').replace(/\/$/, '')
+  const response = await fetch(`${apiBaseUrl}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
