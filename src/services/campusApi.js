@@ -53,7 +53,10 @@ export function readCachedCampusData() {
 }
 
 export async function loadCampusData() {
-  const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  const hostedBaseUrl = import.meta.env.PROD && window.location.protocol === 'https:'
+    ? window.location.origin
+    : ''
+  const baseUrl = (import.meta.env.VITE_API_URL || hostedBaseUrl).replace(/\/$/, '')
   if (!baseUrl) return null
 
   const [oddResponse, evenResponse, homeworkResponse] = await Promise.all([
