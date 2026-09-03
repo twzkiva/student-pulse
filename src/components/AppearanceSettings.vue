@@ -2,6 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
 import {
   AdjustmentsHorizontalIcon,
+  ArrowPathRoundedSquareIcon,
   CheckIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
@@ -11,6 +12,8 @@ defineProps({
   theme: { type: String, required: true },
   density: { type: String, required: true },
   motionEnabled: { type: Boolean, required: true },
+  appVersion: { type: String, required: true },
+  updateStatus: { type: String, required: true },
 })
 
 const emit = defineEmits([
@@ -169,6 +172,16 @@ onBeforeUnmount(() => {
                 <span></span>
               </button>
             </div>
+
+            <div class="setting-row update-row">
+              <span class="update-icon" aria-hidden="true">
+                <ArrowPathRoundedSquareIcon class="h-5 w-5" />
+              </span>
+              <div>
+                <strong>Оновлення застосунку</strong>
+                <p>Версія {{ appVersion }} · {{ updateStatus }}</p>
+              </div>
+            </div>
           </div>
 
           <footer class="settings-footer">
@@ -273,6 +286,8 @@ onBeforeUnmount(() => {
 .segmented-control button.selected { color: var(--text-primary); background: var(--surface); box-shadow: var(--shadow-sm); }
 
 .setting-row { display: flex; min-height: 4.25rem; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); }
+.update-row { justify-content: flex-start; }
+.update-icon { display: grid; width: 2.5rem; height: 2.5rem; flex: none; place-items: center; border: 1px solid var(--accent-border); border-radius: 0.8rem; color: var(--accent); background: var(--accent-soft); }
 .switch-control { position: relative; width: 3.25rem; height: 2rem; flex: none; border: 0; border-radius: 999px; background: var(--control-off); transition: background-color 180ms ease; }
 .switch-control span { position: absolute; top: 0.25rem; left: 0.25rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: white; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2); transition: transform 180ms ease; }
 .switch-control.active { background: var(--accent); }

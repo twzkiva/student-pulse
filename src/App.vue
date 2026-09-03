@@ -18,6 +18,7 @@ import { homeworkItems } from './data/homework'
 import { getIsoWeek, weekDays, weeklySchedules, weekTypeFor } from './data/schedule'
 import { loadCampusData, readCachedCampusData } from './services/campusApi'
 import { syncScheduleWidget } from './services/widgetSync'
+import { useAppUpdaterStatus } from './services/appUpdater'
 import { useAppearancePreferences } from './composables/useAppearancePreferences'
 
 const InfoModal = defineAsyncComponent(() => import('./components/InfoModal.vue'))
@@ -33,6 +34,7 @@ const syncState = ref(import.meta.env.VITE_API_URL ? 'syncing' : 'local')
 const isSettingsOpen = shallowRef(false)
 const botUrl = 'https://t.me/R0zkladYrokiw_bot'
 const curatorPhoneUrl = 'tel:+380668108900'
+const { currentVersion, updateStatus } = useAppUpdaterStatus()
 const isClassPreview = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get('preview') === 'class'
 const {
@@ -425,6 +427,8 @@ watch(
       :theme="theme"
       :density="density"
       :motion-enabled="motionEnabled"
+      :app-version="currentVersion"
+      :update-status="updateStatus"
       @update:theme="theme = $event"
       @update:density="density = $event"
       @update:motion-enabled="motionEnabled = $event"

@@ -4,5 +4,18 @@
   "webDir": "dist-mobile",
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorUpdater": {
+      "appReadyTimeout": 10000,
+      "responseTimeout": 20,
+      "autoDeleteFailed": true,
+      "autoDeletePrevious": true,
+      "autoUpdate": "atBackground",
+      "resetWhenUpdate": true,
+      "updateUrl": "https://campus-pulse-kn31.xileftoma.chatgpt.site/api/app-update",
+      "statsUrl": "",
+      "version": "1.0.0"
+    }
   }
 }

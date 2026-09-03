@@ -55,10 +55,87 @@ const JSON_HEADERS = {
   'access-control-allow-headers': 'content-type',
 }
 
+const UPDATE_APP_ID = 'ua.edu.campus.pulse'
+const UPDATE_MANIFEST_PATH = '/updates/manifest.json'
+
 const textEncoder = new TextEncoder()
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS })
+}
+
+function compareVersions(left, right) {
+  const normalize = (value) => String(value || '0')
+    .split(/[.-]/)
+    .map((part) => Number.parseInt(part, 10))
+    .map((part) => (Number.isFinite(part) ? part : 0))
+  const leftParts = normalize(left)
+  const rightParts = normalize(right)
+  const length = Math.max(leftParts.length, rightParts.length)
+
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0)
+    if (difference !== 0) return Math.sign(difference)
+  }
+  return 0
+}
+
+async function readUpdateManifest(request, env) {
+  if (!env.ASSETS || typeof env.ASSETS.fetch !== 'function') return null
+  const manifestUrl = new URL(UPDATE_MANIFEST_PATH, request.url)
+  const response = await env.ASSETS.fetch(new Request(manifestUrl, { method: 'GET' }))
+  if (!response.ok) return null
+
+  const manifest = await response.json()
+  if (!manifest?.version || !manifest?.file || !manifest?.checksum) return null
+  return manifest
+}
+
+async function handleAppUpdate(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: JSON_HEADERS })
+
+  const manifest = await readUpdateManifest(request, env)
+  if (!manifest) return json({ kind: 'failed', error: 'update_not_configured', message: 'Оновлення ще не опубліковано' }, 503)
+
+  if (request.method === 'GET') {
+    return json({ version: manifest.version, published_at: manifest.publishedAt })
+  }
+  if (request.method !== 'POST') return json({ detail: 'Метод не підтримується' }, 405)
+
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return json({ kind: 'failed', error: 'invalid_request', message: 'Невірний формат запиту' }, 400)
+  }
+
+  if (body?.app_id !== UPDATE_APP_ID) {
+    return json({
+      kind: 'blocked',
+      error: 'app_id_mismatch',
+      message: 'Оновлення не призначене для цього застосунку',
+      version: manifest.version,
+    })
+  }
+
+  const installedVersion = body.version_name || '0.0.0'
+  if (compareVersions(installedVersion, manifest.version) >= 0) {
+    return json({
+      kind: 'up_to_date',
+      error: 'no_new_version_available',
+      message: 'Встановлено останню версію',
+      version: manifest.version,
+    })
+  }
+
+  const bundleUrl = new URL(`/updates/${manifest.file.replace(/^\/+/, '')}`, request.url)
+  return json({
+    version: manifest.version,
+    url: bundleUrl.href,
+    checksum: manifest.checksum,
+    breaking: false,
+    message: 'Доступне нове оновлення',
+  })
 }
 
 async function ensureSeedData(db) {
@@ -303,6 +380,10 @@ export default {
     try {
       const url = new URL(request.url)
 
+      if (url.pathname === '/api/app-update') {
+        return handleAppUpdate(request, env)
+      }
+
       if (url.pathname.startsWith('/api/')) {
         if (!env.DB) return json({ detail: 'База даних ще не підключена' }, 503)
         await ensureSeedData(env.DB)
@@ -330,6 +411,8 @@ export default {
 
       const response = await env.ASSETS.fetch(request)
       if (response.status !== 404 || request.method !== 'GET') return response
+
+      if (url.pathname.startsWith('/updates/')) return response
 
       url.pathname = '/index.html'
       return env.ASSETS.fetch(new Request(url, request))

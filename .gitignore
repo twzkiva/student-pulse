@@ -20,6 +20,7 @@ backend/app/__pycache__/
 .dev.vars
 .wrangler/
 releases/
+ota/
 worker-configuration.d.ts
 
 # Editor directories and files
