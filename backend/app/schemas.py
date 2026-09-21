@@ -4,9 +4,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScheduleEntryBase(BaseModel):
-    subject: str | None = Field(default=None, max_length=160)
-    room: str | None = Field(default=None, max_length=40)
-    teacher: str | None = Field(default=None, max_length=120)
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    subject: str | None = Field(default=None, min_length=1, max_length=160)
+    room: str | None = Field(default=None, min_length=1, max_length=40)
+    teacher: str | None = Field(default=None, min_length=1, max_length=120)
     dossier: str | None = None
     route: str | None = None
 
@@ -26,6 +28,8 @@ class ScheduleEntryRead(ScheduleEntryBase):
 
 
 class HomeworkCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     subject: str = Field(min_length=1, max_length=160)
     text: str = Field(min_length=1, max_length=2000)
     due_date: date | None = None
@@ -40,8 +44,10 @@ class HomeworkRead(HomeworkCreate):
 
 
 class ErrorReportCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     text: str = Field(min_length=1, max_length=2000)
-    reporter_chat_id: str | None = None
+    reporter_chat_id: str | None = Field(default=None, max_length=64)
 
 
 class ErrorReportRead(ErrorReportCreate):

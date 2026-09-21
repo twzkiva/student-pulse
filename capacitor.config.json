@@ -15,7 +15,7 @@
       "resetWhenUpdate": true,
       "updateUrl": "https://campus-pulse-ki13.aellen-mario.chatgpt.site/api/app-update",
       "statsUrl": "",
-      "version": "1.0.0"
+      "version": "1.0.2"
     }
   }
 }

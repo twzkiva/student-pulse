@@ -18,10 +18,13 @@ backend/__pycache__/
 backend/app/__pycache__/
 **/__pycache__/
 .dev.vars
+.env
+backend/.env
 .wrangler/
 releases/
 ota/
 worker-configuration.d.ts
+worker-cloudflare.d.ts
 
 # Editor directories and files
 .vscode/*

@@ -37,6 +37,8 @@ const actions = [
   gap: 0.55rem;
 }
 .action-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: flex;
   min-height: 5.7rem;
   align-items: flex-start;
@@ -49,9 +51,9 @@ const actions = [
   color: var(--accent);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  font-size: .66rem;
+  font-size: .8125rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.4;
   text-decoration: none;
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }

@@ -1,12 +1,14 @@
 import argparse
 import os
+from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
 
 
 def main() -> None:
-    load_dotenv()
+    load_dotenv(Path(__file__).resolve().parents[2] / '.env.local')
+    load_dotenv(Path(__file__).resolve().parents[1] / '.env.local')
     parser = argparse.ArgumentParser(description='Підключити Telegram webhook до опублікованого API.')
     parser.add_argument('base_url', help='HTTPS-адреса API, наприклад https://example.onrender.com')
     args = parser.parse_args()

@@ -25,7 +25,8 @@ export const appearanceThemes = [
 
 function readPreferences() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {}
   } catch {
     return {}
   }

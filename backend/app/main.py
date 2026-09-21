@@ -1,12 +1,15 @@
 from contextlib import asynccontextmanager
+import hmac
+import json
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from .database import Base, SessionLocal, engine, get_db
-from .models import ErrorReport, Homework, ScheduleEntry
+from .models import ErrorReport, Homework, ScheduleEntry, TelegramUpdate
 from .schemas import (
     ErrorReportCreate,
     ErrorReportRead,
@@ -49,7 +52,7 @@ app.add_middleware(
 
 
 def require_admin(x_admin_key: str = Header(default='')) -> None:
-    if not settings.api_admin_key or x_admin_key != settings.api_admin_key:
+    if not settings.api_admin_key or not hmac.compare_digest(x_admin_key.encode(), settings.api_admin_key.encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Невірний ключ адміністратора')
 
 
@@ -106,7 +109,15 @@ def update_schedule_entry(
     if row is None:
         row = ScheduleEntry(week_type=week_type, day_key=day_key, period=period)
         db.add(row)
-    for key, value in payload.model_dump().items():
+    changes = payload.model_dump(exclude_unset=True)
+    if 'subject' in changes and changes['subject'] != row.subject:
+        if 'teacher' not in changes:
+            row.teacher = None
+        if 'dossier' not in changes:
+            row.dossier = None
+    if 'room' in changes and changes['room'] != row.room and 'route' not in changes:
+        row.route = None
+    for key, value in changes.items():
         setattr(row, key, value)
     db.commit()
     db.refresh(row)
@@ -144,7 +155,36 @@ async def telegram_webhook(
     x_telegram_bot_api_secret_token: str = Header(default=''),
     db: Session = Depends(get_db),
 ):
-    if settings.telegram_webhook_secret and x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
+    if not settings.telegram_webhook_secret or not settings.telegram_bot_token:
+        raise HTTPException(status_code=503, detail='Telegram webhook не налаштований')
+    if not hmac.compare_digest(x_telegram_bot_api_secret_token.encode(), settings.telegram_webhook_secret.encode()):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Невірний секрет webhook')
-    await handle_update(await request.json(), db)
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > 65536:
+            raise HTTPException(status_code=413, detail='Повідомлення завелике')
+    try:
+        update = json.loads(data)
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail='Невірний формат запиту')
+    if not isinstance(update, dict):
+        raise HTTPException(status_code=400, detail='Невірний формат запиту')
+    if not isinstance(update.get('message'), dict):
+        return {'ok': True}
+    update_id = update.get('update_id')
+    if type(update_id) is not int or not 0 <= update_id <= 9007199254740991:
+        raise HTTPException(status_code=422, detail='Невірний update_id')
+    try:
+        db.add(TelegramUpdate(update_id=update_id))
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return {'ok': True}
+    try:
+        await handle_update(update, db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return {'ok': True}

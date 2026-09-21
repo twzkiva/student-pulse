@@ -20,6 +20,8 @@ public class ScheduleWidgetPlugin extends Plugin {
         for (String key : WidgetData.SYNC_KEYS) {
             editor.putString(key, call.getString(key, ""));
         }
+        JSObject schedules = call.getObject("schedules");
+        if (schedules != null) editor.putString("schedules", schedules.toString());
         editor.putLong("syncedAt", System.currentTimeMillis());
         editor.apply();
 

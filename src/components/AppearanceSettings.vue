@@ -7,6 +7,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import { appearanceThemes } from '../composables/useAppearancePreferences'
+import { handleRadioKeydown } from '../utils/radioKeyboard'
 
 defineProps({
   theme: { type: String, required: true },
@@ -43,7 +44,7 @@ function handleKeydown(event) {
 
   const focusable = [...panel.value.querySelectorAll(
     'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-  )]
+  )].filter((element) => element.tabIndex >= 0)
   if (!focusable.length) return
 
   const first = focusable[0]
@@ -109,7 +110,7 @@ onBeforeUnmount(() => {
             <fieldset class="settings-group">
               <legend>Тема</legend>
               <p class="group-help">Колір можна змінити будь-коли.</p>
-              <div class="theme-options" role="radiogroup" aria-label="Тема оформлення">
+              <div class="theme-options" role="radiogroup" aria-label="Тема оформлення" @keydown="handleRadioKeydown">
                 <button
                   v-for="item in appearanceThemes"
                   :key="item.id"
@@ -118,6 +119,7 @@ onBeforeUnmount(() => {
                   type="button"
                   role="radio"
                   :aria-checked="theme === item.id"
+                  :tabindex="theme === item.id ? 0 : -1"
                   @click="emit('update:theme', item.id)"
                 >
                   <span class="theme-swatches" aria-hidden="true">
@@ -140,13 +142,14 @@ onBeforeUnmount(() => {
 
             <fieldset class="settings-group">
               <legend>Щільність</legend>
-              <div class="segmented-control" role="radiogroup" aria-label="Щільність інтерфейсу">
+              <div class="segmented-control" role="radiogroup" aria-label="Щільність інтерфейсу" @keydown="handleRadioKeydown">
                 <button
                   v-for="option in [{ id: 'comfortable', label: 'Зручна' }, { id: 'compact', label: 'Компактна' }]"
                   :key="option.id"
                   type="button"
                   role="radio"
                   :aria-checked="density === option.id"
+                  :tabindex="density === option.id ? 0 : -1"
                   :class="{ selected: density === option.id }"
                   @click="emit('update:density', option.id)"
                 >

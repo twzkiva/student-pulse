@@ -26,6 +26,9 @@ async function registerUpdaterEvents() {
     currentVersion.value = bundleVersion(bundle)
     updateStatus.value = 'Встановлено останню версію'
   })
+  await CapacitorUpdater.addListener('updateFailed', () => {
+    updateStatus.value = 'Не вдалося встановити оновлення — поточна версія залишається доступною'
+  })
 }
 
 export function initializeAppUpdater() {

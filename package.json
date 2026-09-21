@@ -1,15 +1,18 @@
 {
   "name": "student-pulse",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
+    "test": "node --test tests/campus.test.mjs tests/sync.test.mjs tests/worker.test.mjs",
     "dev": "vite",
     "dev:worker": "wrangler dev --local --config wrangler.jsonc",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
     "mock:telegram": "node scripts/mock-telegram.mjs",
     "build": "vite build && node scripts/write-sites-worker.mjs",
     "build:mobile": "vite build --mode mobile",
+    "build:cloudflare": "vite build --mode cloudflare && node scripts/write-sites-worker.mjs",
+    "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy --config wrangler.cloudflare.jsonc",
     "cap:sync": "npm run build:mobile && cap sync",
     "android:apk": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1",
     "ota:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-ota.ps1",
@@ -27,6 +30,7 @@
     "vue": "^3.5.41"
   },
   "devDependencies": {
+    "miniflare": "5.20260831.0-alpha",
     "@capacitor/cli": "^8.5.1",
     "@openai/sites-vite-plugin": "^0.2.0",
     "@vitejs/plugin-vue": "^6.0.8",

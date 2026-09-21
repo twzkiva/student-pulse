@@ -36,6 +36,7 @@
   --accent-border: rgba(63, 80, 231, 0.28);
   --accent-glow: rgba(63, 80, 231, 0.24);
   --success: #3f50e7;
+  --danger: #b42332;
   --control-off: #c8cfda;
   --overlay: rgba(18, 24, 39, 0.48);
   --navigation: rgba(255, 255, 255, 0.92);
@@ -74,6 +75,7 @@
   --accent-border: rgba(113, 136, 255, 0.32);
   --accent-glow: rgba(113, 136, 255, 0.24);
   --success: #7188ff;
+  --danger: #ff9da8;
   --control-off: #3a4350;
   --overlay: rgba(2, 4, 8, 0.7);
   --navigation: rgba(24, 29, 37, 0.92);
@@ -107,6 +109,7 @@
   --accent-border: rgba(198, 128, 255, 0.34);
   --accent-glow: rgba(185, 108, 255, 0.48);
   --success: #b96cff;
+  --danger: #ff9da8;
   --control-off: #3a3441;
   --overlay: rgba(4, 3, 7, 0.74);
   --navigation: rgba(17, 15, 22, 0.91);
@@ -153,6 +156,10 @@ summary:focus-visible {
   outline-offset: 3px;
 }
 
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.skip-link { position: fixed; top: .75rem; left: 1rem; z-index: 100; padding: .8rem 1rem; border-radius: .7rem; color: var(--on-accent); background: var(--accent); transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); }
+
 button { cursor: pointer; }
 
 .app-shell {
@@ -189,7 +196,7 @@ button { cursor: pointer; }
 
 .eyebrow {
   color: var(--accent);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 750;
   letter-spacing: 0.11em;
   line-height: 1;
@@ -210,7 +217,7 @@ button { cursor: pointer; }
   border-radius: 999px;
   color: var(--text-secondary);
   background: var(--accent-soft);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 650;
 }
 

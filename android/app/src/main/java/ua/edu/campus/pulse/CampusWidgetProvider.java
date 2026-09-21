@@ -1,12 +1,13 @@
 package ua.edu.campus.pulse;
 
 import android.app.PendingIntent;
+import android.app.AlarmManager;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.view.View;
+import android.os.SystemClock;
 import android.widget.RemoteViews;
 
 public abstract class CampusWidgetProvider extends AppWidgetProvider {
@@ -17,6 +18,25 @@ public abstract class CampusWidgetProvider extends AppWidgetProvider {
         for (int widgetId : appWidgetIds) {
             manager.updateAppWidget(widgetId, buildViews(context));
         }
+        if (appWidgetIds.length > 0) scheduleRefresh(context);
+    }
+
+    @Override public void onDisabled(Context context) { scheduleRefresh(context); }
+
+    private static void scheduleRefresh(Context context) {
+        AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarms == null) return;
+        PendingIntent refresh = PendingIntent.getBroadcast(context, 0,
+            new Intent(context, WidgetRefreshReceiver.class).setAction(WidgetRefreshReceiver.ACTION_REFRESH),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+        int count = 0;
+        for (Class<?> provider : new Class<?>[]{SmallWidgetProvider.class, MediumWidgetProvider.class, LargeWidgetProvider.class}) {
+            count += manager.getAppWidgetIds(new ComponentName(context, provider)).length;
+        }
+        if (count == 0) { alarms.cancel(refresh); return; }
+        // No exact-alarm permission: the OS may defer boundary refreshes while idle.
+        alarms.set(AlarmManager.RTC, Math.max(System.currentTimeMillis() + 1000, WidgetData.load(context).targetAt), refresh);
     }
 
     protected RemoteViews buildViews(Context context) {
@@ -27,7 +47,12 @@ public abstract class CampusWidgetProvider extends AppWidgetProvider {
         views.setTextViewText(R.id.widget_subject, data.subject);
         views.setTextViewText(R.id.widget_time, data.timeLabel);
         views.setTextViewText(R.id.widget_room, data.room);
-        views.setTextViewText(R.id.widget_countdown, data.countdown);
+        boolean ticking = data.targetAt > System.currentTimeMillis() && data.hasLesson;
+        views.setChronometerCountDown(R.id.widget_countdown, true);
+        views.setChronometer(R.id.widget_countdown,
+            SystemClock.elapsedRealtime() + Math.max(0, data.targetAt - System.currentTimeMillis()),
+            data.current ? "Ще %s" : "Через %s", ticking);
+        if (!ticking) views.setTextViewText(R.id.widget_countdown, data.countdown);
         bindOptional(views, data);
 
         Intent intent = new Intent(context, MainActivity.class);

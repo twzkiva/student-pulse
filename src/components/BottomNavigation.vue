@@ -19,7 +19,7 @@ const items = [
   { id: 'home', label: 'Головна', icon: HomeIcon },
   { id: 'schedule', label: 'Розклад', icon: CalendarDaysIcon },
   { id: 'homework', label: 'Завдання', icon: ClipboardDocumentListIcon },
-  { id: 'teachers', label: 'Викладачі', icon: AcademicCapIcon },
+  { id: 'teachers', label: 'Куратор', icon: AcademicCapIcon },
 ]
 </script>
 
@@ -32,7 +32,7 @@ const items = [
         class="nav-item"
         :class="{ active: activeItem === item.id }"
         type="button"
-        :aria-current="activeItem === item.id ? 'page' : undefined"
+        :aria-current="activeItem === item.id ? 'location' : undefined"
         @click="$emit('select', item)"
       >
         <span class="icon-shell">
@@ -86,7 +86,7 @@ const items = [
   color: var(--text-secondary);
   background: transparent;
   font-family: inherit;
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   font-weight: 600;
   transition: color 180ms ease, background-color 180ms ease, transform 160ms ease;
 }
@@ -141,6 +141,6 @@ const items = [
 }
 
 @media (min-width: 480px) {
-  .nav-item { font-size: 0.65rem; }
+  .nav-item { font-size: 0.8125rem; }
 }
 </style>

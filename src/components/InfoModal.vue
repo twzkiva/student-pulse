@@ -30,7 +30,7 @@ function handleKeydown(event) {
     return
   }
 
-  if (event.key !== 'Tab') return
+  if (event.key !== 'Tab' || !modalPanel.value) return
 
   const focusable = [...modalPanel.value.querySelectorAll(
     'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',

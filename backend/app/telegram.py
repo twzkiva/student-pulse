@@ -38,10 +38,10 @@ def current_week_type(today: date) -> str:
 
 
 def is_admin(message: dict) -> bool:
-    allowed_id = settings.telegram_admin_chat_id
-    chat_id = int(message.get('chat', {}).get('id', 0))
-    sender_id = int(message.get('from', {}).get('id', 0))
-    return bool(allowed_id and allowed_id in (chat_id, sender_id))
+    allowed = settings.telegram_admin_user_ids or (settings.telegram_admin_chat_id,)
+    sender = message.get('from')
+    sender_id = sender.get('id') if isinstance(sender, dict) else None
+    return type(sender_id) is int and sender_id > 0 and sender_id in allowed
 
 
 async def send_message(chat_id: int, text: str) -> None:
@@ -49,7 +49,9 @@ async def send_message(chat_id: int, text: str) -> None:
         return
     url = f'https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage'
     async with httpx.AsyncClient(timeout=12) as client:
-        await client.post(url, json={'chat_id': chat_id, 'text': text})
+        response = await client.post(url, json={'chat_id': chat_id, 'text': text})
+        if response.status_code != 200 or not response.json().get('ok'):
+            raise RuntimeError(f'Telegram API: {response.status_code}')
 
 
 def schedule_text(db: Session, day_key: str, week_type: str) -> str:
@@ -75,13 +77,17 @@ HELP_TEXT = (
     'Команди куратора:\n'
     '/setlesson непарний пн 1 Предмет | 405\n'
     '/cancel парний пт 4\n'
-    '/homework Предмет | Завдання | 2026-09-10'
+    '/homework Предмет | Завдання | 2026-09-10\n'
+    '/homework — список завдань з номерами\n'
+    '/done 12 — завершити завдання (куратор)'
 )
 
 
 async def handle_update(update: dict, db: Session) -> None:
-    message = update.get('message') or update.get('edited_message')
-    if not message or not message.get('text'):
+    message = update.get('message')
+    if not isinstance(message, dict) or not isinstance(message.get('text'), str) or not message['text'].strip():
+        return
+    if not isinstance(message.get('chat'), dict) or type(message['chat'].get('id')) is not int:
         return
 
     chat_id = int(message['chat']['id'])
@@ -100,7 +106,7 @@ async def handle_update(update: dict, db: Session) -> None:
     except (KeyError, ValueError):
         pass
     week_type = current_week_type(today)
-    day_key = today.strftime('%A').lower()
+    day_key = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')[today.weekday()]
 
     if command == '/today':
         if day_key not in DAY_NAMES:
@@ -119,6 +125,9 @@ async def handle_update(update: dict, db: Session) -> None:
         if not report_text:
             await send_message(chat_id, 'Напиши так: /report що саме не так у розкладі')
             return
+        if len(report_text) > 2000:
+            await send_message(chat_id, 'Скороти повідомлення до 2000 символів.')
+            return
         db.add(ErrorReport(text=report_text, reporter_chat_id=str(chat_id)))
         db.commit()
         await send_message(chat_id, 'Дякую! Повідомлення збережено й передано куратору.')
@@ -126,19 +135,26 @@ async def handle_update(update: dict, db: Session) -> None:
             await send_message(settings.telegram_admin_chat_id, f'Нове повідомлення про помилку:\n{report_text}')
         return
 
+    if command == '/homework' and len(text.split()) == 1:
+        rows = db.scalars(select(Homework).where(Homework.completed.is_(False)).order_by(Homework.due_date, Homework.id)).all()
+        lines = [f'#{row.id} · {row.subject} · {row.due_date or "без дати"}\n{row.text}' for row in rows]
+        await send_message(chat_id, '\n\n'.join(lines)[:4000] if lines else 'Активних завдань немає.')
+        return
+
     if not is_admin(message):
         await send_message(chat_id, 'Ця команда доступна лише куратору. Скористайся /today, /week або /report.')
         return
 
     if command == '/setlesson':
-        payload = text.partition(' ')[2].strip()
-        header, separator, details = payload.partition(' ')
-        day_token, separator2, details = details.partition(' ')
-        period_token, separator3, subject_room = details.partition(' ')
+        tokens = text.split(maxsplit=4)
+        if len(tokens) != 5:
+            await send_message(chat_id, 'Формат: /setlesson непарний пн 1 Предмет | 405')
+            return
+        _, header, day_token, period_token, subject_room = tokens
         subject, separator4, room = subject_room.partition('|')
         parsed_week = WEEK_ALIASES.get(header.lower())
         parsed_day = DAY_ALIASES.get(day_token.lower())
-        if not all((separator, separator2, separator3, separator4, parsed_week, parsed_day, period_token.isdigit(), subject.strip(), room.strip())):
+        if not all((separator4, parsed_week, parsed_day, period_token in ('1', '2', '3', '4', '5'), subject.strip(), room.strip())) or len(subject.strip()) > 160 or len(room.strip()) > 40:
             await send_message(chat_id, 'Формат: /setlesson непарний пн 1 Предмет | 405')
             return
         period = int(period_token)
@@ -153,8 +169,12 @@ async def handle_update(update: dict, db: Session) -> None:
         if row is None:
             row = ScheduleEntry(week_type=parsed_week, day_key=parsed_day, period=period)
             db.add(row)
-        row.subject = subject.strip()
-        row.room = room.strip()
+        if row.subject != subject.strip():
+            row.teacher = None
+            row.dossier = None
+        if row.room != room.strip():
+            row.route = None
+        row.subject, row.room = subject.strip(), room.strip()
         db.commit()
         await send_message(chat_id, f'Оновлено:\n{schedule_text(db, parsed_day, parsed_week)}')
         return
@@ -163,36 +183,56 @@ async def handle_update(update: dict, db: Session) -> None:
         parts = text.split()
         parsed_week = WEEK_ALIASES.get(parts[1].lower()) if len(parts) > 1 else None
         parsed_day = DAY_ALIASES.get(parts[2].lower()) if len(parts) > 2 else None
-        if len(parts) != 4 or not parsed_week or not parsed_day or not parts[3].isdigit():
+        if len(parts) != 4 or not parsed_week or not parsed_day or parts[3] not in ('1', '2', '3', '4', '5'):
             await send_message(chat_id, 'Формат: /cancel парний пт 4')
             return
         period = int(parts[3])
+        if period not in BELL_TIMES:
+            await send_message(chat_id, 'Номер пари має бути від 1 до 5.')
+            return
         row = db.scalar(select(ScheduleEntry).where(
             ScheduleEntry.week_type == parsed_week,
             ScheduleEntry.day_key == parsed_day,
             ScheduleEntry.period == period,
         ))
-        if row:
-            row.subject = None
-            row.room = None
-            db.commit()
+        if row is None:
+            row = ScheduleEntry(week_type=parsed_week, day_key=parsed_day, period=period)
+            db.add(row)
+        row.subject = row.room = row.teacher = row.dossier = row.route = None
+        db.commit()
         await send_message(chat_id, 'Пару скасовано. Застосунок отримає зміни під час синхронізації.')
         return
 
     if command == '/homework':
         payload = text.partition(' ')[2]
         parts = [part.strip() for part in payload.split('|')]
-        if len(parts) != 3 or not all(parts):
+        if len(parts) != 3 or not all(parts) or len(parts[0]) > 160 or len(parts[1]) > 2000:
             await send_message(chat_id, 'Формат: /homework Предмет | Завдання | 2026-09-10')
             return
         try:
             due_date = date.fromisoformat(parts[2])
+            if due_date.isoformat() != parts[2]:
+                raise ValueError('Non-canonical date')
         except ValueError:
             await send_message(chat_id, 'Дата має бути у форматі РРРР-ММ-ДД, наприклад 2026-09-10.')
             return
         db.add(Homework(subject=parts[0], text=parts[1], due_date=due_date))
         db.commit()
         await send_message(chat_id, 'Домашнє завдання додано.')
+        return
+
+    if command == '/done':
+        parts = text.split()
+        if len(parts) != 2 or not parts[1].isascii() or not parts[1].isdigit() or len(parts[1]) > 16 or int(parts[1]) > 9007199254740991:
+            await send_message(chat_id, 'Формат: /done 12. Номер завдання можна знайти командою /homework.')
+            return
+        row = db.get(Homework, int(parts[1]))
+        if row is None or row.completed:
+            await send_message(chat_id, 'Активне завдання з таким номером не знайдено.')
+            return
+        row.completed = True
+        db.commit()
+        await send_message(chat_id, 'Завдання завершено.')
         return
 
     await send_message(chat_id, HELP_TEXT)

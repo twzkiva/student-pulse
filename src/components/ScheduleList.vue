@@ -19,7 +19,10 @@ function stateClass(lesson) {
 </script>
 
 <template>
-  <ol class="schedule-list" aria-label="Пари на обраний день">
+  <p v-if="!lessons.length" class="rounded-xl border border-panel p-4 text-sm text-muted" role="status">
+    На цей день занять немає.
+  </p>
+  <ol v-else class="schedule-list" aria-label="Пари на обраний день">
     <template v-for="(lesson, index) in lessons" :key="lesson.id">
       <li
         class="lesson-card"
@@ -37,8 +40,8 @@ function stateClass(lesson) {
         </div>
 
         <div class="min-w-0 flex-1">
-          <div class="mb-1.5 flex items-start justify-between gap-2">
-            <h3 class="min-w-0 text-[0.9375rem] font-semibold leading-snug text-ink">
+          <div class="lesson-heading mb-1.5">
+            <h3 class="min-w-0 text-base font-semibold leading-snug text-ink">
               {{ lesson.subject }}
             </h3>
             <span class="state-badge">{{ lesson.state }}</span>
@@ -61,7 +64,7 @@ function stateClass(lesson) {
         </button>
       </li>
 
-      <li v-if="index < lessons.length - 1" class="break-row" aria-label="Перерва">
+      <li v-if="index < lessons.length - 1 && lesson.breakAfter > 0" class="break-row" aria-label="Перерва">
         <span class="break-line" aria-hidden="true"></span>
         <span>Перерва {{ lesson.breakAfter }} хв</span>
         <span class="break-line" aria-hidden="true"></span>
@@ -89,8 +92,7 @@ function stateClass(lesson) {
   padding: 0.8rem 0.7rem;
   border: 1px solid var(--border-soft);
   border-radius: 1.125rem;
-  background: var(--surface-tint);
-  box-shadow: var(--shadow-sm);
+  background: var(--surface-soft);
   transition: border-color 180ms ease, background-color 180ms ease, box-shadow 220ms ease, transform 220ms ease;
   animation: lesson-enter 460ms cubic-bezier(0.22, 1, 0.36, 1) var(--stagger-delay) both;
 }
@@ -116,8 +118,10 @@ function stateClass(lesson) {
 }
 
 .lesson-card.is-complete {
-  opacity: 0.55;
+  background: var(--surface);
 }
+.lesson-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .6rem; }
+.lesson-heading h3 { overflow-wrap: anywhere; }
 
 .period-number {
   display: grid;
@@ -158,7 +162,7 @@ function stateClass(lesson) {
   border-radius: 0.45rem;
   color: var(--text-secondary);
   background: var(--surface);
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   line-height: 1;
@@ -208,15 +212,14 @@ function stateClass(lesson) {
 
 .break-row {
   display: grid;
-  height: 1.7rem;
+  min-height: 2rem;
   align-items: center;
   gap: 0.65rem;
   padding-inline: 0.75rem;
   color: var(--text-tertiary);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   grid-template-columns: 1fr auto 1fr;
 }
 
@@ -251,7 +254,7 @@ function stateClass(lesson) {
   }
 }
 
-@media (max-width: 374px) {
+@media (max-width: 540px) {
   .period-number { display: none; }
   .lesson-card { gap: 0.55rem; }
 }

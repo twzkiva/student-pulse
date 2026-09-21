@@ -3,7 +3,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 const ScheduleWidget = registerPlugin('ScheduleWidget')
 
 export async function syncScheduleWidget(payload) {
-  if (!Capacitor.isNativePlatform()) return
+  if (Capacitor.getPlatform() !== 'android') return
   try {
     await ScheduleWidget.update(payload)
   } catch (error) {

@@ -1,3 +1,5 @@
+import { handleAuth } from './auth.js'
+
 const DAY_LABELS = {
   monday: 'Понеділок',
   tuesday: 'Вівторок',
@@ -46,6 +48,8 @@ const HELP_TEXT = [
   '/setlesson непарний пн 1 Предмет | 405',
   '/cancel парний пт 4',
   '/homework Предмет | Завдання | 2026-09-10',
+  '/homework — список завдань з номерами',
+  '/done 12 — завершити завдання (куратор)',
 ].join('\n')
 
 const JSON_HEADERS = {
@@ -53,6 +57,9 @@ const JSON_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
   'access-control-allow-headers': 'content-type',
+  'cache-control': 'no-store',
+  'referrer-policy': 'no-referrer',
+  'x-content-type-options': 'nosniff',
 }
 
 const UPDATE_APP_ID = 'ua.edu.campus.pulse'
@@ -64,18 +71,72 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS })
 }
 
-function compareVersions(left, right) {
-  const normalize = (value) => String(value || '0')
-    .split(/[.-]/)
-    .map((part) => Number.parseInt(part, 10))
-    .map((part) => (Number.isFinite(part) ? part : 0))
-  const leftParts = normalize(left)
-  const rightParts = normalize(right)
-  const length = Math.max(leftParts.length, rightParts.length)
+class RequestError extends Error {
+  constructor(status, message) { super(message); this.status = status }
+}
 
-  for (let index = 0; index < length; index += 1) {
-    const difference = (leftParts[index] || 0) - (rightParts[index] || 0)
-    if (difference !== 0) return Math.sign(difference)
+async function readJson(request, limit = 8192) {
+  if (Number(request.headers.get('content-length')) > limit) throw new RequestError(413, 'Повідомлення завелике')
+  const reader = request.body?.getReader()
+  if (!reader) throw new RequestError(400, 'Порожній запит')
+  let size = 0
+  let text = ''
+  const decoder = new TextDecoder()
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > limit) {
+        await reader.cancel()
+        throw new RequestError(413, 'Повідомлення завелике')
+      }
+      text += decoder.decode(value, { stream: true })
+    }
+    const body = JSON.parse(text + decoder.decode())
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid JSON object')
+    return body
+  } catch (error) {
+    if (error instanceof RequestError) throw error
+    throw new RequestError(400, 'Невірний формат запиту')
+  } finally { reader.releaseLock() }
+}
+
+function validDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T12:00:00Z`)
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
+function versionParts(value) {
+  const match = String(value).match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/)
+  if (!match) return null
+  const numbers = match.slice(1, 4).map(Number)
+  const pre = match[4]?.split('.') ?? []
+  if (!numbers.every(Number.isSafeInteger)
+    || pre.some((part) => !part || /^0\d+$/.test(part))
+    || String(value).split('+')[1]?.split('.').some((part) => !part)) return null
+  return { numbers, pre }
+}
+
+function compareVersions(left, right) {
+  const a = versionParts(left)
+  const b = versionParts(right)
+  for (let index = 0; index < 3; index += 1) {
+    const difference = a.numbers[index] - b.numbers[index]
+    if (difference) return Math.sign(difference)
+  }
+  if (!a.pre.length || !b.pre.length) return a.pre.length ? -1 : b.pre.length ? 1 : 0
+  for (let i = 0; i < Math.max(a.pre.length, b.pre.length); i += 1) {
+    if (a.pre[i] === b.pre[i]) continue
+    if (a.pre[i] === undefined) return -1
+    if (b.pre[i] === undefined) return 1
+    const an = /^\d+$/.test(a.pre[i])
+    const bn = /^\d+$/.test(b.pre[i])
+    if (an && bn) return a.pre[i].length !== b.pre[i].length
+      ? Math.sign(a.pre[i].length - b.pre[i].length) : a.pre[i] < b.pre[i] ? -1 : 1
+    if (an !== bn) return an ? -1 : 1
+    return a.pre[i] < b.pre[i] ? -1 : 1
   }
   return 0
 }
@@ -87,7 +148,9 @@ async function readUpdateManifest(request, env) {
   if (!response.ok) return null
 
   const manifest = await response.json()
-  if (!manifest?.version || !manifest?.file || !manifest?.checksum) return null
+  if (!versionParts(manifest?.version)
+    || !/^bundles\/[0-9A-Za-z._-]+\.zip$/.test(manifest?.file)
+    || !/^[a-fA-F0-9]{64}$/.test(manifest?.checksum)) return null
   return manifest
 }
 
@@ -102,12 +165,7 @@ async function handleAppUpdate(request, env) {
   }
   if (request.method !== 'POST') return json({ detail: 'Метод не підтримується' }, 405)
 
-  let body
-  try {
-    body = await request.json()
-  } catch {
-    return json({ kind: 'failed', error: 'invalid_request', message: 'Невірний формат запиту' }, 400)
-  }
+  const body = await readJson(request)
 
   if (body?.app_id !== UPDATE_APP_ID) {
     return json({
@@ -118,13 +176,14 @@ async function handleAppUpdate(request, env) {
     })
   }
 
-  const installedVersion = body.version_name || '0.0.0'
+  const installedVersion = !body.version_name || body.version_name === 'builtin' ? '0.0.0' : body.version_name
+  if (!versionParts(installedVersion)) return json({ kind: 'failed', error: 'invalid_version' }, 400)
   if (compareVersions(installedVersion, manifest.version) >= 0) {
     return json({
       kind: 'up_to_date',
       error: 'no_new_version_available',
       message: 'Встановлено останню версію',
-      version: manifest.version,
+      version: installedVersion,
     })
   }
 
@@ -204,8 +263,9 @@ function currentWeekType() {
 }
 
 function isAdmin(env, message) {
-  const allowed = String(env.TELEGRAM_ADMIN_CHAT_ID || '')
-  return allowed && [message.chat?.id, message.from?.id].some((value) => String(value) === allowed)
+  const allowed = String(env.TELEGRAM_ADMIN_USER_IDS || env.TELEGRAM_ADMIN_CHAT_ID || '')
+    .split(',').map((value) => value.trim()).filter((value) => /^[1-9]\d*$/.test(value))
+  return allowed.includes(String(message.from?.id))
 }
 
 async function sendTelegram(env, chatId, text) {
@@ -218,8 +278,18 @@ async function sendTelegram(env, chatId, text) {
       text,
       disable_web_page_preview: true,
     }),
+    signal: AbortSignal.timeout(12000),
   })
-  if (!response.ok) throw new Error(`Telegram API: ${response.status}`)
+  if (!response.ok || !(await response.json()).ok) throw new Error(`Telegram API: ${response.status}`)
+}
+
+async function runTelegramMutation(env, updateId, sql, values) {
+  const guard = 'NOT EXISTS (SELECT 1 FROM telegram_updates WHERE update_id = ?)'
+  const results = await env.DB.batch([
+    env.DB.prepare(sql.replace('/* once */', guard)).bind(...values, updateId),
+    env.DB.prepare('INSERT INTO telegram_updates (update_id) VALUES (?) ON CONFLICT DO NOTHING').bind(updateId),
+  ])
+  return results[0]
 }
 
 async function scheduleText(db, dayKey, weekType) {
@@ -234,8 +304,10 @@ async function scheduleText(db, dayKey, weekType) {
 }
 
 async function handleTelegramUpdate(env, update) {
-  const message = update.message || update.edited_message
-  if (!message?.text) return
+  const message = update.message
+  if (typeof message?.text !== 'string' || !message.text.trim() || !Number.isSafeInteger(message.chat?.id)) return
+  if (!Number.isSafeInteger(update.update_id) || update.update_id < 0) throw new RequestError(422, 'Невірний update_id')
+  if (await env.DB.prepare('SELECT update_id FROM telegram_updates WHERE update_id = ?').bind(update.update_id).first()) return
 
   const chatId = message.chat.id
   const text = message.text.trim()
@@ -272,11 +344,23 @@ async function handleTelegramUpdate(env, update) {
       await sendTelegram(env, chatId, 'Напиши так: /report що саме не так у розкладі')
       return
     }
-    await env.DB.prepare('INSERT INTO error_reports (text, reporter_chat_id) VALUES (?, ?)').bind(reportText, String(chatId)).run()
+    if (reportText.length > 2000) {
+      await sendTelegram(env, chatId, 'Скороти повідомлення до 2000 символів.')
+      return
+    }
+    await runTelegramMutation(env, update.update_id,
+      'INSERT INTO error_reports (text, reporter_chat_id) SELECT ?, ? WHERE /* once */', [reportText, String(chatId)])
     await sendTelegram(env, chatId, 'Дякую! Повідомлення збережено й передано куратору.')
     if (env.TELEGRAM_ADMIN_CHAT_ID && String(env.TELEGRAM_ADMIN_CHAT_ID) !== String(chatId)) {
       await sendTelegram(env, env.TELEGRAM_ADMIN_CHAT_ID, `Нове повідомлення про помилку:\n${reportText}`)
     }
+    return
+  }
+
+  if (command === '/homework' && !/\s/.test(text)) {
+    const result = await env.DB.prepare('SELECT * FROM homework WHERE completed = 0 ORDER BY due_date, id').all()
+    const lines = result.results.map((item) => `#${item.id} · ${item.subject} · ${item.due_date || 'без дати'}\n${item.text}`)
+    await sendTelegram(env, chatId, lines.length ? lines.join('\n\n').slice(0, 4000) : 'Активних завдань немає.')
     return
   }
 
@@ -294,12 +378,19 @@ async function handleTelegramUpdate(env, update) {
       await sendTelegram(env, chatId, 'Формат: /setlesson непарний пн 1 Предмет | 405')
       return
     }
-    await env.DB.prepare(`
+    if (!match[4].trim() || !match[5].trim() || match[4].trim().length > 160 || match[5].trim().length > 40) {
+      await sendTelegram(env, chatId, 'Предмет: до 160 символів; аудиторія: до 40.')
+      return
+    }
+    await runTelegramMutation(env, update.update_id, `
       INSERT INTO schedule_entries (week_type, day_key, period, subject, room)
-      VALUES (?, ?, ?, ?, ?)
+      SELECT ?, ?, ?, ?, ? WHERE /* once */
       ON CONFLICT (week_type, day_key, period) DO UPDATE SET
+        teacher = CASE WHEN subject IS NOT excluded.subject THEN NULL ELSE teacher END,
+        dossier = CASE WHEN subject IS NOT excluded.subject THEN NULL ELSE dossier END,
+        route = CASE WHEN room IS NOT excluded.room THEN NULL ELSE route END,
         subject = excluded.subject, room = excluded.room, updated_at = CURRENT_TIMESTAMP
-    `).bind(parsedWeek, parsedDay, period, match[4].trim(), match[5].trim()).run()
+    `, [parsedWeek, parsedDay, period, match[4].trim(), match[5].trim()])
     await sendTelegram(env, chatId, `Оновлено:\n${await scheduleText(env.DB, parsedDay, parsedWeek)}`)
     return
   }
@@ -313,24 +404,38 @@ async function handleTelegramUpdate(env, update) {
       await sendTelegram(env, chatId, 'Формат: /cancel парний пт 4')
       return
     }
-    await env.DB.prepare(`
+    await runTelegramMutation(env, update.update_id, `
       INSERT INTO schedule_entries (week_type, day_key, period, subject, room)
-      VALUES (?, ?, ?, NULL, NULL)
+      SELECT ?, ?, ?, NULL, NULL WHERE /* once */
       ON CONFLICT (week_type, day_key, period) DO UPDATE SET
-        subject = NULL, room = NULL, updated_at = CURRENT_TIMESTAMP
-    `).bind(parsedWeek, parsedDay, period).run()
+        subject = NULL, room = NULL, teacher = NULL, dossier = NULL, route = NULL, updated_at = CURRENT_TIMESTAMP
+    `, [parsedWeek, parsedDay, period])
     await sendTelegram(env, chatId, 'Пару скасовано. Застосунок отримає зміни під час синхронізації.')
     return
   }
 
   if (command === '/homework') {
     const parts = text.slice(text.indexOf(' ') + 1).split('|').map((part) => part.trim())
-    if (!text.includes(' ') || parts.length !== 3 || parts.some((part) => !part) || !/^\d{4}-\d{2}-\d{2}$/.test(parts[2])) {
+    if (!text.includes(' ') || parts.length !== 3 || parts.some((part) => !part)
+      || !validDate(parts[2]) || parts[0].length > 160 || parts[1].length > 2000) {
       await sendTelegram(env, chatId, 'Формат: /homework Предмет | Завдання | 2026-09-10')
       return
     }
-    await env.DB.prepare('INSERT INTO homework (subject, text, due_date) VALUES (?, ?, ?)').bind(parts[0], parts[1], parts[2]).run()
+    await runTelegramMutation(env, update.update_id,
+      'INSERT INTO homework (subject, text, due_date) SELECT ?, ?, ? WHERE /* once */', parts)
     await sendTelegram(env, chatId, 'Домашнє завдання додано.')
+    return
+  }
+
+  if (command === '/done') {
+    const match = text.match(/^\/done(?:@\w+)?\s+(\d+)$/i)
+    if (!match || !Number.isSafeInteger(Number(match[1]))) {
+      await sendTelegram(env, chatId, 'Формат: /done 12. Номер завдання можна знайти командою /homework.')
+      return
+    }
+    const result = await runTelegramMutation(env, update.update_id,
+      'UPDATE homework SET completed = 1 WHERE id = ? AND completed = 0 AND /* once */', [Number(match[1])])
+    await sendTelegram(env, chatId, result.meta.changes ? 'Завдання завершено.' : 'Активне завдання з таким номером не знайдено.')
     return
   }
 
@@ -353,20 +458,13 @@ async function handleApi(request, env, url) {
   }
 
   if (request.method === 'POST' && url.pathname === '/api/reports') {
-    const contentLength = Number(request.headers.get('content-length') || 0)
-    if (contentLength > 8192) return json({ detail: 'Повідомлення завелике' }, 413)
-
-    let body
-    try {
-      body = await request.json()
-    } catch {
-      return json({ detail: 'Невірний формат запиту' }, 400)
-    }
+    const body = await readJson(request)
 
     if (!body?.text || typeof body.text !== 'string' || !body.text.trim()) {
       return json({ detail: 'Додайте текст повідомлення' }, 422)
     }
-    const reportText = body.text.trim().slice(0, 2000)
+    const reportText = body.text.trim()
+    if (reportText.length > 2000) return json({ detail: 'Скоротіть повідомлення до 2000 символів' }, 422)
     const result = await env.DB.prepare('INSERT INTO error_reports (text, reporter_chat_id) VALUES (?, ?)')
       .bind(reportText, body.reporter_chat_id ? String(body.reporter_chat_id).slice(0, 64) : null).run()
     return json({ id: result.meta.last_row_id, text: reportText }, 201)
@@ -381,13 +479,14 @@ export default {
       const url = new URL(request.url)
 
       if (url.pathname === '/api/app-update') {
-        return handleAppUpdate(request, env)
+        return await handleAppUpdate(request, env)
       }
 
       if (url.pathname.startsWith('/api/')) {
         if (!env.DB) return json({ detail: 'База даних ще не підключена' }, 503)
+        if (url.pathname.startsWith('/api/auth/')) return await handleAuth(request, env, url)
         await ensureSeedData(env.DB)
-        return handleApi(request, env, url)
+        return await handleApi(request, env, url)
       }
 
       if (url.pathname === '/telegram/webhook' && request.method === 'POST') {
@@ -401,7 +500,7 @@ export default {
         if (!verified) return json({ ok: false }, 403)
 
         await ensureSeedData(env.DB)
-        await handleTelegramUpdate(env, await request.json())
+        await handleTelegramUpdate(env, await readJson(request, 65536))
         return json({ ok: true })
       }
 
@@ -415,8 +514,9 @@ export default {
       if (url.pathname.startsWith('/updates/')) return response
 
       url.pathname = '/index.html'
-      return env.ASSETS.fetch(new Request(url, request))
+      return await env.ASSETS.fetch(new Request(url, request))
     } catch (error) {
+      if (error instanceof RequestError) return json({ detail: error.message }, error.status)
       console.error(JSON.stringify({
         event: 'request_failed',
         message: error instanceof Error ? error.message : 'Невідома помилка',

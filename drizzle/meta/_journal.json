@@ -8,6 +8,13 @@
       "when": 1788387608726,
       "tag": "0000_shiny_roughhouse",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788640109431,
+      "tag": "0001_telegram_updates",
+      "breakpoints": true
     }
   ]
 }

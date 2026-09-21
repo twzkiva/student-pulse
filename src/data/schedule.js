@@ -1,3 +1,5 @@
+import { campusDate } from '../utils/campusTime.js'
+
 export const bellSchedule = [
   { number: 1, label: 'I пара', start: '08:30', end: '09:50', breakAfter: 10 },
   { number: 2, label: 'II пара', start: '10:00', end: '11:20', breakAfter: 40 },
@@ -105,7 +107,8 @@ export const weeklySchedules = Object.fromEntries(
 )
 
 export function getIsoWeek(date = new Date()) {
-  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const { year, month, day: dayOfMonth } = campusDate(date)
+  const utcDate = new Date(Date.UTC(year, month - 1, dayOfMonth))
   const day = utcDate.getUTCDay() || 7
   utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day)
   const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1))

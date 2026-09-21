@@ -3,16 +3,28 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { sites } from '@openai/sites-vite-plugin'
+import { weeklySchedules } from './src/data/schedule.js'
+import { readFileSync } from 'node:fs'
+
+const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
 
 export default defineConfig(({ mode }) => {
   const isMobile = mode === 'mobile'
 
   return {
+    define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.VITE_APP_VERSION || packageVersion) },
     plugins: [
       vue(),
       tailwindcss(),
+      {
+        name: 'campus-widget-defaults',
+        generateBundle() {
+          this.emitFile({ type: 'asset', fileName: 'widget-schedule.json', source: JSON.stringify({ schedules: weeklySchedules }) })
+        },
+      },
       !isMobile && sites(),
       VitePWA({
+      disable: isMobile,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {

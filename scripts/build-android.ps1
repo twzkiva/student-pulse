@@ -7,12 +7,12 @@ $sdkRoot = if ($env:ANDROID_HOME) {
   Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 }
 
-$jdkCandidates = @(
+$jdkCandidates = @(@(
   $env:JAVA_HOME
   'C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot'
   'C:\Program Files\Java\jdk-21'
   (Join-Path $env:USERPROFILE '.jdks\ms-21.0.10')
-) | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'bin\java.exe')) }
+) | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'bin\java.exe')) })
 
 if (-not $jdkCandidates) {
   throw 'JDK 21 was not found. Install JDK 21 or set JAVA_HOME.'
@@ -34,7 +34,7 @@ try {
 
   Push-Location (Join-Path $projectRoot 'android')
   try {
-    & .\gradlew.bat assembleDebug
+    & .\gradlew.bat --no-daemon assembleDebug
     if ($LASTEXITCODE -ne 0) { throw 'Android APK build failed.' }
   } finally {
     Pop-Location
@@ -42,7 +42,8 @@ try {
 
   $sourceApk = Join-Path $projectRoot 'android\app\build\outputs\apk\debug\app-debug.apk'
   $releaseDirectory = Join-Path $projectRoot 'releases'
-  $releaseApk = Join-Path $releaseDirectory 'Campus-Pulse-KI13-v1.0.0-debug.apk'
+  $appVersion = (Get-Content -LiteralPath (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json).version
+  $releaseApk = Join-Path $releaseDirectory "Campus-Pulse-KI13-v$appVersion-debug.apk"
   New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
   Copy-Item -LiteralPath $sourceApk -Destination $releaseApk -Force
 

@@ -2,38 +2,51 @@
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   BoltIcon,
-  CalendarDaysIcon,
   CheckCircleIcon,
   Cog6ToothIcon,
 } from '@heroicons/vue/24/outline'
 import BellSchedule from './components/BellSchedule.vue'
 import BottomNavigation from './components/BottomNavigation.vue'
 import CurrentClassWidget from './components/CurrentClassWidget.vue'
+import DayOverview from './components/DayOverview.vue'
+import SyncStatus from './components/SyncStatus.vue'
 import CuratorContact from './components/CuratorContact.vue'
 import HomeworkSection from './components/HomeworkSection.vue'
 import QuickActions from './components/QuickActions.vue'
-import ScheduleList from './components/ScheduleList.vue'
-import WeekParityToggle from './components/WeekParityToggle.vue'
-import { homeworkItems } from './data/homework'
-import { getIsoWeek, weekDays, weeklySchedules, weekTypeFor } from './data/schedule'
-import { loadCampusData, readCachedCampusData } from './services/campusApi'
+import SchedulePanel from './components/SchedulePanel.vue'
+import { getIsoWeek, weekDays, weekTypeFor } from './data/schedule'
+import { curator } from './data/contacts'
+import { useCampusData } from './composables/useCampusData'
+import { CAMPUS_TIME_ZONE, campusDate } from './utils/campusTime'
+import { buildLessonTimeline } from './utils/scheduleTimeline'
 import { syncScheduleWidget } from './services/widgetSync'
 import { useAppUpdaterStatus } from './services/appUpdater'
 import { useAppearancePreferences } from './composables/useAppearancePreferences'
+import { useSectionNavigation } from './composables/useSectionNavigation'
+import { useAuth } from './composables/useAuth'
+import AccountButton from './components/account/AccountButton.vue'
 
 const InfoModal = defineAsyncComponent(() => import('./components/InfoModal.vue'))
 const AppearanceSettings = defineAsyncComponent(() => import('./components/AppearanceSettings.vue'))
+const AuthModal = defineAsyncComponent(() => import('./components/account/AuthModal.vue'))
 
 const now = ref(Date.now())
+const minuteNow = computed(() => Math.floor(now.value / 60000) * 60000)
 const selectedLesson = ref(null)
-const activeNavigation = ref('home')
-const notice = ref('')
-const schedules = ref(structuredClone(weeklySchedules))
-const homework = ref([...homeworkItems])
-const syncState = ref(import.meta.env.VITE_API_URL ? 'syncing' : 'local')
+const { schedules, homework, syncState, synchronize, updatedAt, isRefreshing, canRefresh } = useCampusData()
 const isSettingsOpen = shallowRef(false)
+const isAccountOpen = shallowRef(false)
+const authNotice = shallowRef('')
+const authCallbackError = shallowRef('')
+const googleErrorMessages = {
+  access_denied: 'Google не дозволив вхід. Перевірте тестових користувачів або спробуйте інший Gmail.',
+  invalid_state: 'Сесія входу застаріла або cookie було заблоковано. Почніть вхід ще раз.',
+  token_invalid_client: 'Google відхилив OAuth-клієнт. Перевіряємо Client ID та Client Secret.',
+  token_invalid_grant: 'Google відхилив одноразовий код входу. Спробуйте ще раз.',
+  account_conflict: 'Ця пошта вже прив’язана до іншого Google-акаунта.',
+}
 const botUrl = 'https://t.me/R0zkladYrokiw_bot'
-const curatorPhoneUrl = 'tel:+380668108900'
+const curatorPhoneUrl = `tel:${curator.phone}`
 const { currentVersion, updateStatus } = useAppUpdaterStatus()
 const isClassPreview = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get('preview') === 'class'
@@ -43,29 +56,41 @@ const {
   motionEnabled,
   resetPreferences,
 } = useAppearancePreferences()
-let noticeTimer
+const { activeNavigation, navigate } = useSectionNavigation(motionEnabled)
+const {
+  user: accountUser,
+  status: authStatus,
+  error: authError,
+  googleEnabled,
+  googleUrl,
+  load: loadAuth,
+  login: loginAccount,
+  register: registerAccount,
+  logout: logoutAccount,
+  clearError: clearAuthError,
+} = useAuth()
 let clockTimer
+const previewStartedAt = Date.now() - 32 * 60 * 1000
 
 function dayKeyFor(date) {
-  return weekDays.find((day) => day.jsDay === date.getDay())?.key ?? null
+  return weekDays.find((day) => day.jsDay === campusDate(date).jsDay)?.key ?? null
 }
 
 const activeDayKey = ref(dayKeyFor(new Date()) ?? 'monday')
 const todayKey = computed(() => dayKeyFor(new Date(now.value)))
-const activeDay = computed(() => weekDays.find((day) => day.key === activeDayKey.value))
 const automaticWeekType = computed(() => weekTypeFor(new Date(now.value)))
 const selectedWeekType = ref(weekTypeFor(new Date()))
 const weekNumber = computed(() => getIsoWeek(new Date(now.value)))
+const dateKey = computed(() => campusDate(now.value).dateKey)
 
-function timestampFor(time) {
-  const [hours, minutes] = time.split(':').map(Number)
-  const date = new Date(now.value)
-  date.setHours(hours, minutes, 0, 0)
-  return date.getTime()
-}
+watch(dateKey, () => {
+  activeDayKey.value = todayKey.value ?? 'monday'
+  selectedWeekType.value = automaticWeekType.value
+})
 
 function formatClock(timestamp) {
   return new Intl.DateTimeFormat('uk-UA', {
+    timeZone: CAMPUS_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -74,20 +99,13 @@ function formatClock(timestamp) {
 
 function buildTimeline(dayKey, weekType = automaticWeekType.value) {
   const isToday = dayKey === todayKey.value && weekType === automaticWeekType.value
-  const lessons = (schedules.value[weekType]?.[dayKey] ?? [])
-    .filter((lesson) => !lesson.isEmpty)
-    .map((lesson) => ({
-      ...lesson,
-      startAt: timestampFor(lesson.start),
-      endAt: timestampFor(lesson.end),
-      state: 'Заплановано',
-    }))
+  const lessons = buildLessonTimeline(schedules.value[weekType]?.[dayKey] ?? [], minuteNow.value, isToday)
 
   if (!isToday) return lessons
 
   if (isClassPreview && lessons.length) {
     const previewIndex = Math.min(1, lessons.length - 1)
-    const previewStartAt = now.value - 32 * 60 * 1000
+    const previewStartAt = previewStartedAt
     const previewEndAt = previewStartAt + 80 * 60 * 1000
 
     return lessons.map((lesson, index) => {
@@ -99,24 +117,14 @@ function buildTimeline(dayKey, weekType = automaticWeekType.value) {
           end: formatClock(previewEndAt),
           startAt: previewStartAt,
           endAt: previewEndAt,
-          state: 'Зараз',
+          state: now.value < previewEndAt ? 'Зараз' : 'Завершено',
         }
       }
       return { ...lesson, state: index === previewIndex + 1 ? 'Далі' : 'Пізніше' }
     })
   }
 
-  const nextLessonIndex = lessons.findIndex(
-    (lesson) => now.value < lesson.startAt,
-  )
-
-  return lessons.map((lesson, index) => {
-    if (now.value >= lesson.startAt && now.value < lesson.endAt) {
-      return { ...lesson, state: 'Зараз' }
-    }
-    if (now.value >= lesson.endAt) return { ...lesson, state: 'Завершено' }
-    return { ...lesson, state: index === nextLessonIndex ? 'Далі' : 'Пізніше' }
-  })
+  return lessons
 }
 
 const selectedSchedule = computed(() => buildTimeline(activeDayKey.value, selectedWeekType.value))
@@ -128,15 +136,9 @@ const nextLesson = computed(() => todaySchedule.value.find((lesson) => lesson.st
 const featuredLesson = computed(() => currentLesson.value ?? nextLesson.value)
 const featuredMode = computed(() => (currentLesson.value ? 'current' : 'next'))
 
-const lessonSummary = computed(() => {
-  const count = selectedSchedule.value.length
-  if (count === 1) return '1 пара'
-  if (count >= 2 && count <= 4) return `${count} пари`
-  return `${count} пар`
-})
-
 const formattedDate = computed(() => {
   const date = new Intl.DateTimeFormat('uk-UA', {
+    timeZone: CAMPUS_TIME_ZONE,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -150,6 +152,8 @@ const syncLabel = computed(() => ({
   synced: 'Розклад актуальний',
   cached: 'Збережена копія',
   local: 'Доступно офлайн',
+  partial: 'Частину даних ще не оновлено',
+  offline: 'Немає інтернету',
 }[syncState.value]))
 const statusDisplayLabel = computed(() => (
   isClassPreview ? 'Демо поточної пари' : syncLabel.value
@@ -195,28 +199,6 @@ const widgetPayload = computed(() => {
   }
 })
 
-async function synchronize() {
-  const cached = readCachedCampusData()
-  if (cached) {
-    schedules.value = cached.schedules
-    homework.value = cached.homework
-    syncState.value = 'cached'
-  }
-  if (!import.meta.env.VITE_API_URL) return
-
-  try {
-    const fresh = await loadCampusData()
-    if (fresh) {
-      schedules.value = fresh.schedules
-      homework.value = fresh.homework
-      syncState.value = 'synced'
-      await syncScheduleWidget(widgetPayload.value)
-    }
-  } catch {
-    syncState.value = cached ? 'cached' : 'local'
-  }
-}
-
 function startClock() {
   stopClock()
   now.value = Date.now()
@@ -244,54 +226,44 @@ function closeLessonInfo() {
 }
 
 function selectNavigation(item) {
-  if (item.id === 'home') {
-    activeNavigation.value = 'home'
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-    return
-  }
-
-  if (item.id === 'schedule') {
-    activeNavigation.value = 'schedule'
-    document.querySelector('#today-schedule')?.scrollIntoView({ behavior: 'smooth' })
-    return
-  }
-
-  if (item.id === 'teachers') {
-    activeNavigation.value = 'teachers'
-    document.querySelector('#curator-contact')?.scrollIntoView({ behavior: 'smooth' })
-    return
-  }
-
-  if (item.id === 'homework') {
-    activeNavigation.value = 'homework'
-    document.querySelector('#homework')?.scrollIntoView({ behavior: 'smooth' })
-    return
-  }
-
-  activeNavigation.value = item.id
-  notice.value = `Розділ «${item.label}» готується до підключення.`
-  window.clearTimeout(noticeTimer)
-  noticeTimer = window.setTimeout(() => {
-    notice.value = ''
-    activeNavigation.value = 'home'
-  }, 2400)
+  navigate(item.id)
 }
 
-onMounted(() => {
+function clearAccountError() {
+  authCallbackError.value = ''
+  clearAuthError()
+}
+
+onMounted(async () => {
   startClock()
-  synchronize()
   document.addEventListener('visibilitychange', handleVisibilityChange)
+  await loadAuth()
+  const currentUrl = new URL(window.location.href)
+  const authResult = currentUrl.searchParams.get('auth')
+  if (authResult === 'google-success') {
+    authNotice.value = 'Вхід через Google успішний.'
+    isAccountOpen.value = true
+  } else if (authResult === 'google-error') {
+    const reason = currentUrl.searchParams.get('reason')
+    authCallbackError.value = googleErrorMessages[reason]
+      || 'Не вдалося завершити вхід через Google. Спробуйте ще раз.'
+    isAccountOpen.value = true
+  }
+  if (authResult) {
+    currentUrl.searchParams.delete('auth')
+    currentUrl.searchParams.delete('reason')
+    window.history.replaceState({}, '', currentUrl)
+  }
 })
 
 onBeforeUnmount(() => {
   stopClock()
-  window.clearTimeout(noticeTimer)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 watch(
-  () => Math.floor(now.value / 60000),
-  () => syncScheduleWidget(widgetPayload.value),
+  [schedules, () => Math.floor(now.value / 60000)],
+  () => syncScheduleWidget({ ...widgetPayload.value, schedules: schedules.value }),
   { immediate: true },
 )
 </script>
@@ -301,29 +273,37 @@ watch(
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
-    <main class="relative z-10 mx-auto w-full max-w-[680px] px-4 pb-32 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
+    <a class="skip-link" href="#today-schedule">Перейти до розкладу</a>
+    <main id="home" tabindex="-1" class="campus-main relative z-10 mx-auto w-full px-4 pb-32 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
       <header class="app-header mb-5">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="eyebrow mb-2 flex items-center gap-2">
+            <p class="eyebrow brand-label mb-3 flex items-center gap-2">
               <BoltIcon class="h-4 w-4" aria-hidden="true" />
               КІ-13 · Кампус Пульс
             </p>
             <h1 class="app-title">
-              Твій навчальний день
+              Усе для твого дня.
             </h1>
             <p class="mt-1 text-sm font-medium text-muted">{{ formattedDate }}</p>
           </div>
 
-          <button
-            class="settings-trigger"
-            type="button"
-            aria-label="Відкрити налаштування вигляду"
-            :aria-expanded="isSettingsOpen"
-            @click="isSettingsOpen = true"
-          >
-            <Cog6ToothIcon class="h-5 w-5" aria-hidden="true" />
-          </button>
+          <div class="header-actions">
+            <AccountButton
+              :user="accountUser"
+              :loading="authStatus === 'loading'"
+              @open="isAccountOpen = true"
+            />
+            <button
+              class="settings-trigger"
+              type="button"
+              aria-label="Відкрити налаштування вигляду"
+              :aria-expanded="isSettingsOpen"
+              @click="isSettingsOpen = true"
+            >
+              <Cog6ToothIcon class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div class="status-line" :aria-label="statusDisplayLabel">
@@ -332,6 +312,10 @@ watch(
         </div>
       </header>
 
+      <DayOverview :lessons="todaySchedule" :homework-count="homework.length" @navigate="selectNavigation({ id: $event })" />
+
+      <div class="campus-grid">
+      <div class="schedule-column">
       <CurrentClassWidget
         v-if="featuredLesson"
         :lesson="featuredLesson"
@@ -348,71 +332,27 @@ watch(
             Навчальний день
           </p>
           <h2 id="day-finished-title" class="text-lg font-bold text-ink">
-            {{ todayKey ? 'На сьогодні пари завершено' : 'Сьогодні вихідний' }}
+            {{ !todayKey ? 'Сьогодні вихідний' : todaySchedule.length ? 'На сьогодні пари завершено' : 'Сьогодні немає пар' }}
           </h2>
           <p class="mt-1 text-sm text-muted">Можна переглянути розклад на інший день нижче.</p>
         </div>
       </section>
 
-      <QuickActions :bot-url="botUrl" :phone-url="curatorPhoneUrl" class="mt-5" />
-
-      <section id="today-schedule" class="schedule-section mt-7 scroll-mt-5" aria-labelledby="schedule-title">
-        <div class="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <p class="eyebrow mb-2 flex items-center gap-2">
-              <CalendarDaysIcon class="h-4 w-4" aria-hidden="true" />
-              Твій тиждень
-            </p>
-            <h2 id="schedule-title" class="text-xl font-bold tracking-[-0.03em] text-ink">
-              {{ activeDay.label }}
-            </h2>
-          </div>
-          <span class="lesson-count">{{ lessonSummary }}</span>
-        </div>
-
-        <div class="mb-2 flex items-center justify-between gap-3 px-1 text-[0.65rem] font-semibold text-muted">
-          <span>Навчальний тиждень №{{ weekNumber }}</span>
-          <span v-if="selectedWeekType !== automaticWeekType" class="text-neon-bright">Перегляд іншого тижня</span>
-          <span v-else class="text-emerald-300">Визначено автоматично</span>
-        </div>
-
-        <WeekParityToggle
-          v-model="selectedWeekType"
-          :automatic-type="automaticWeekType"
-        />
-
-        <div class="day-tabs" aria-label="Оберіть день тижня">
-          <button
-            v-for="day in weekDays"
-            :key="day.key"
-            class="day-tab"
-            :class="{ active: activeDayKey === day.key }"
-            type="button"
-            :aria-pressed="activeDayKey === day.key"
-            :aria-label="day.label"
-            @click="activeDayKey = day.key"
-          >
-            <span>{{ day.short }}</span>
-            <span v-if="todayKey === day.key" class="today-dot" aria-hidden="true"></span>
-          </button>
-        </div>
-
-        <ScheduleList :lessons="selectedSchedule" @show-info="openLessonInfo" />
-        <HomeworkSection :items="homework" :bot-url="botUrl" class="mt-4" />
+      <SchedulePanel v-model:day="activeDayKey" v-model:week="selectedWeekType" :lessons="selectedSchedule" :today-key="todayKey" :automatic-type="automaticWeekType" :week-number="weekNumber" @show-info="openLessonInfo" />
+      </div>
+      <aside class="campus-sidebar" aria-label="Завдання та корисне">
+        <QuickActions :bot-url="botUrl" :phone-url="curatorPhoneUrl" />
+        <HomeworkSection :items="homework" :bot-url="botUrl" :now="minuteNow" class="mt-5" />
         <BellSchedule class="mt-4" />
-        <CuratorContact id="curator-contact" class="mt-4 scroll-mt-5" />
-      </section>
+        <CuratorContact id="curator-contact" tabindex="-1" class="mt-4 scroll-mt-5" />
+        <SyncStatus :state="syncState" :refreshing="isRefreshing" :can-refresh="canRefresh" :updated-at="updatedAt" class="mt-4" @refresh="synchronize" />
+      </aside>
+      </div>
 
       <footer class="app-footer mt-10 py-6 text-center text-xs leading-5 text-muted">
         Працює навіть без інтернету<br />Оновлення розкладу — через Telegram-бота
       </footer>
     </main>
-
-    <Transition name="toast">
-      <div v-if="notice" class="notice" role="status">
-        {{ notice }}
-      </div>
-    </Transition>
 
     <BottomNavigation :active-item="activeNavigation" @select="selectNavigation" />
 
@@ -435,64 +375,25 @@ watch(
       @reset="resetPreferences"
       @close="isSettingsOpen = false"
     />
+
+    <AuthModal
+      v-if="isAccountOpen"
+      :user="accountUser"
+      :status="authStatus"
+      :error="authCallbackError || authError"
+      :notice="authNotice"
+      :google-enabled="googleEnabled"
+      :google-url="googleUrl"
+      @login="loginAccount"
+      @register="registerAccount"
+      @logout="logoutAccount"
+      @clear-error="clearAccountError"
+      @close="isAccountOpen = false; authNotice = ''; clearAccountError()"
+    />
   </div>
 </template>
 
 <style scoped>
-.day-tabs {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.35rem;
-  margin-bottom: 0.75rem;
-  padding: 0.3rem;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  background: var(--surface-soft);
-  animation: content-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
-}
-
-.day-tab {
-  position: relative;
-  display: grid;
-  min-height: 2.8rem;
-  place-items: center;
-  border: 0;
-  border-radius: 0.75rem;
-  color: var(--text-secondary);
-  background: transparent;
-  font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 700;
-  transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
-}
-
-.day-tab:hover {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
-.day-tab.active {
-  color: var(--accent);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--accent-border);
-  animation: tab-pop 320ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.day-tab:active {
-  transform: scale(0.94);
-}
-
-.today-dot {
-  position: absolute;
-  bottom: 0.35rem;
-  width: 0.25rem;
-  height: 0.25rem;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0.5rem var(--accent-glow);
-  animation: today-pulse 2s ease-in-out infinite;
-}
-
 .day-finished {
   display: flex;
   min-height: 8.5rem;
@@ -523,7 +424,7 @@ watch(
 .app-title {
   margin: 0;
   color: var(--text-primary);
-  font-size: 1.4rem;
+  font-size: clamp(1.65rem, 3.4vw, 2.5rem);
   font-weight: 750;
   letter-spacing: -0.045em;
   line-height: 1.15;
@@ -550,6 +451,7 @@ watch(
 }
 
 .settings-trigger:active { opacity: 0.72; }
+.header-actions { display: flex; align-items: center; gap: 0.5rem; }
 
 .status-line {
   display: inline-flex;
@@ -558,7 +460,7 @@ watch(
   gap: 0.45rem;
   margin-top: 0.8rem;
   color: var(--text-secondary);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 650;
 }
 
@@ -568,8 +470,14 @@ watch(
   animation: content-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.schedule-section {
-  animation: content-rise 540ms cubic-bezier(0.22, 1, 0.36, 1) 100ms both;
+.campus-main { max-width: 1160px; }
+.campus-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+.schedule-column, .campus-sidebar { min-width: 0; }
+.brand-label { letter-spacing: .08em; }
+@media (min-width: 960px) {
+  .campus-main { padding-top: 2.5rem; }
+  .campus-grid { grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); align-items: start; gap: 1.5rem; }
+  .app-header { border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; }
 }
 
 @keyframes content-rise {
@@ -577,14 +485,4 @@ watch(
   to { opacity: 1; translate: 0 0; }
 }
 
-@keyframes tab-pop {
-  0% { scale: 0.92; }
-  65% { scale: 1.035; }
-  100% { scale: 1; }
-}
-
-@keyframes today-pulse {
-  0%, 100% { opacity: 0.55; scale: 0.82; }
-  50% { opacity: 1; scale: 1.15; }
-}
 </style>

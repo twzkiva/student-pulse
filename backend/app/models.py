@@ -44,3 +44,10 @@ class ErrorReport(Base):
     text: Mapped[str] = mapped_column(Text)
     reporter_chat_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+
+
+class TelegramUpdate(Base):
+    __tablename__ = 'telegram_updates'
+
+    update_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)

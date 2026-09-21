@@ -11,7 +11,7 @@ import { bellSchedule } from '../data/schedule'
       </span>
       <span class="min-w-0 flex-1">
         <span class="block text-sm font-semibold text-ink">Дзвінки та перерви</span>
-        <span class="mt-0.5 block text-[0.6875rem] text-muted">Пара триває 80 хвилин</span>
+        <span class="mt-0.5 block text-xs text-muted">Пара триває 80 хвилин</span>
       </span>
       <ChevronDownIcon class="chevron h-5 w-5" aria-hidden="true" />
     </summary>
@@ -123,13 +123,12 @@ import { bellSchedule } from '../data/schedule'
 
 .bell-break {
   display: grid;
-  height: 1.3rem;
+  min-height: 1.8rem;
   place-items: center;
   color: var(--text-tertiary);
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 @keyframes bell-enter {

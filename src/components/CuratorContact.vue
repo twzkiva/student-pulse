@@ -12,7 +12,7 @@ import { curator } from '../data/contacts'
     </div>
 
     <div class="relative z-10 min-w-0 flex-1">
-      <p class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-neon-bright">
+      <p class="text-xs font-bold uppercase tracking-[0.1em] text-neon-bright">
         {{ curator.role }}
       </p>
       <h2 id="curator-title" class="mt-1 text-lg font-bold tracking-[-0.025em] text-ink">
@@ -38,6 +38,7 @@ import { curator } from '../data/contacts'
 .curator-card {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.85rem;
   overflow: hidden;
@@ -78,7 +79,7 @@ import { curator } from '../data/contacts'
 
 .phone-number {
   display: inline-block;
-  min-height: 2rem;
+  min-height: 3rem;
   margin-top: 0.25rem;
   padding-block: 0.35rem;
   color: var(--text-secondary);
@@ -93,6 +94,7 @@ import { curator } from '../data/contacts'
 }
 
 .call-button {
+  flex-basis: 100%;
   position: relative;
   z-index: 10;
   display: inline-flex;

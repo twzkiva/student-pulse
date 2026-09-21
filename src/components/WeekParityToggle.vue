@@ -37,7 +37,7 @@ defineEmits(['update:modelValue'])
 }
 .week-option {
   display: inline-flex;
-  min-height: 2.5rem;
+  min-height: 3rem;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
@@ -46,7 +46,7 @@ defineEmits(['update:modelValue'])
   color: var(--text-secondary);
   background: transparent;
   font-family: inherit;
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   font-weight: 700;
   transition: 180ms ease;
 }
