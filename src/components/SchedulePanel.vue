@@ -49,7 +49,7 @@ function resetDay() {
       </button>
     </div>
     <p v-if="week !== automaticType" class="other-week" role="status">Перегляд {{ week === 'even' ? 'парного' : 'непарного' }} тижня. Поточні пари показано в огляді дня.</p>
-    <ScheduleList :lessons="lessons" @show-info="emit('showInfo', $event)" />
+    <ScheduleList :lessons="lessons" :homework="homework" @show-info="emit('showInfo', $event)" />
   </section>
 </template>
 

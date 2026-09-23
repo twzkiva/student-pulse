@@ -166,6 +166,7 @@ function publicUser(row) {
     firstName: row.first_name,
     lastName: row.last_name,
     email: row.email,
+    isAdmin: Boolean(row.is_admin),
     hasPassword: Boolean(row.password_hash),
     googleConnected: Boolean(row.google_sub),
   }
@@ -188,7 +189,7 @@ async function currentSession(request, db) {
   if (!token) return null
   const tokenHash = await sha256(token)
   const row = await db.prepare(`
-    SELECT u.id, u.first_name, u.last_name, u.email, u.password_hash, u.google_sub
+    SELECT u.id, u.first_name, u.last_name, u.email, u.password_hash, u.google_sub, u.is_admin
     FROM sessions s
     INNER JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ?1 AND s.expires_at > ?2
@@ -344,7 +345,7 @@ async function finishGoogle(request, env, url) {
     if (!profile.sub || profile.email_verified !== true || !validEmail(email)) return googleFailure(request, env, 'invalid_profile')
 
     let user = await env.DB.prepare(`
-      SELECT id, first_name, last_name, email, password_hash, google_sub
+      SELECT id, first_name, last_name, email, password_hash, google_sub, is_admin
       FROM users WHERE google_sub = ?1 OR email = ?2 COLLATE NOCASE
       ORDER BY CASE WHEN google_sub = ?1 THEN 0 ELSE 1 END LIMIT 1
     `).bind(String(profile.sub), email).first()
@@ -364,7 +365,7 @@ async function finishGoogle(request, env, url) {
         INSERT INTO users (id, first_name, last_name, email, google_sub, last_login_at)
         VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP)
       `).bind(id, firstName.slice(0, 60), lastName.slice(0, 60), email, String(profile.sub)).run()
-      user = { id, first_name: firstName.slice(0, 60), last_name: lastName.slice(0, 60), email, password_hash: null, google_sub: String(profile.sub) }
+      user = { id, first_name: firstName.slice(0, 60), last_name: lastName.slice(0, 60), email, password_hash: null, google_sub: String(profile.sub), is_admin: 0 }
     }
 
     const session = await createSession(request, env.DB, user.id)
@@ -408,7 +409,7 @@ async function register(request, env) {
     return authJson({ detail: 'Не вдалося створити акаунт із цими даними' }, 409)
   }
   const session = await createSession(request, env.DB, id)
-  return authJson({ user: publicUser({ id, first_name: firstName, last_name: lastName, email, password_hash: passwordRecord.hash, google_sub: null }) }, 201, {
+  return authJson({ user: publicUser({ id, first_name: firstName, last_name: lastName, email, password_hash: passwordRecord.hash, google_sub: null, is_admin: 0 }) }, 201, {
     'set-cookie': sessionCookie(request, session.token),
   })
 }
@@ -425,7 +426,7 @@ async function login(request, env) {
   if (!limit.allowed) return authJson({ detail: 'Забагато спроб. Спробуйте пізніше' }, 429, { 'retry-after': String(limit.retryAfter) })
 
   const row = await env.DB.prepare(`
-    SELECT id, first_name, last_name, email, password_hash, password_salt, password_iterations, password_algorithm, google_sub
+    SELECT id, first_name, last_name, email, password_hash, password_salt, password_iterations, password_algorithm, google_sub, is_admin
     FROM users WHERE email = ?1 COLLATE NOCASE
   `).bind(email).first()
   const storedSalt = row?.password_salt || 'quVxVcn2qQbQLpQdxkXsxQ'
@@ -451,7 +452,16 @@ async function logout(request, env) {
   return authJson({ ok: true }, 200, { 'set-cookie': sessionCookie(request, '', 0) })
 }
 
+export async function requireAdmin(request, env) {
+  const session = await currentSession(request, env.DB)
+  if (!session || !session.user.isAdmin) {
+    return authJson({ detail: 'Недостатньо прав' }, 403)
+  }
+  return { user: session.user }
+}
+
 export async function handleAuth(request, env, url) {
+
   if (!configurationReady(env)) return authJson({ detail: 'Система акаунтів ще не налаштована' }, 503)
 
   if (request.method === 'GET' && url.pathname === '/api/auth/config') {

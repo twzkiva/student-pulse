@@ -19,7 +19,7 @@ const items = [
   { id: 'home', label: 'Головна', icon: HomeIcon },
   { id: 'schedule', label: 'Розклад', icon: CalendarDaysIcon },
   { id: 'homework', label: 'Завдання', icon: ClipboardDocumentListIcon },
-  { id: 'teachers', label: 'Куратор', icon: AcademicCapIcon },
+  { id: 'teachers', label: 'Вчителі', icon: AcademicCapIcon },
 ]
 </script>
 

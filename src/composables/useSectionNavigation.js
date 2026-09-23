@@ -6,23 +6,16 @@ export function sectionFromHash(hash = '') {
   return Object.keys(targets).find(key => `#${targets[key]}` === hash) ?? 'home'
 }
 
-export function useSectionNavigation(motionEnabled) {
+export function useSectionNavigation() {
   const activeNavigation = shallowRef(sectionFromHash(window.location.hash))
 
   function navigate(id, { updateHistory = true, instant = false } = {}) {
     if (!Object.hasOwn(targets, id)) return
-    const element = document.getElementById(targets[id])
-    if (!element) return
     activeNavigation.value = id
     const hash = `#${targets[id]}`
     if (updateHistory && window.location.hash !== hash) {
       window.history.pushState(null, '', hash)
     }
-    const behavior = !instant && toValue(motionEnabled)
-      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'instant'
-    element.focus({ preventScroll: true })
-    if (id === 'home') window.scrollTo({ top: 0, behavior })
-    else element.scrollIntoView({ behavior, block: 'start' })
   }
 
   function restoreLocation() {

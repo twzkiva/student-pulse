@@ -1,16 +1,18 @@
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, useTemplateRef, shallowRef, computed } from 'vue'
 import {
-  AdjustmentsHorizontalIcon,
-  ArrowPathRoundedSquareIcon,
-  CheckIcon,
   XMarkIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  CheckIcon
 } from '@heroicons/vue/24/outline'
-import { appearanceThemes } from '../composables/useAppearancePreferences'
+import { accentColors, colorModes } from '../composables/useAppearancePreferences'
+import { useLayoutPreferences } from '../composables/useLayoutPreferences'
 import { handleRadioKeydown } from '../utils/radioKeyboard'
 
-defineProps({
-  theme: { type: String, required: true },
+const props = defineProps({
+  colorMode: { type: String, required: true },
+  accentColor: { type: String, required: true },
   density: { type: String, required: true },
   motionEnabled: { type: Boolean, required: true },
   appVersion: { type: String, required: true },
@@ -20,10 +22,15 @@ defineProps({
 const emit = defineEmits([
   'close',
   'reset',
-  'update:theme',
+  'update:color-mode',
+  'update:accent-color',
   'update:density',
   'update:motion-enabled',
 ])
+
+const { blocks, moveUp, moveDown, toggleVisibility, resetLayout } = useLayoutPreferences()
+
+const activeTab = shallowRef('appearance') // 'appearance' or 'blocks'
 
 const panel = useTemplateRef('panel')
 const closeButton = useTemplateRef('closeButton')
@@ -49,268 +56,286 @@ function handleKeydown(event) {
 
   const first = focusable[0]
   const last = focusable[focusable.length - 1]
+
   if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
     last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
     event.preventDefault()
+  } else if (!event.shiftKey && document.activeElement === last) {
     first.focus()
+    event.preventDefault()
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   previouslyFocused = document.activeElement
   previousOverflow = document.body.style.overflow
   document.body.style.overflow = 'hidden'
-  document.addEventListener('keydown', handleKeydown)
-  await nextTick()
-  closeButton.value?.focus()
+  nextTick(() => { closeButton.value?.focus() })
 })
 
 onBeforeUnmount(() => {
   document.body.style.overflow = previousOverflow
-  document.removeEventListener('keydown', handleKeydown)
   previouslyFocused?.focus?.()
 })
+
+function onReset() {
+  emit('reset')
+  resetLayout()
+}
+
+function toggleMotion(e) {
+  emit('update:motion-enabled', e.target.checked)
+}
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="settings" appear>
-      <div class="settings-backdrop" @mousedown.self="closeSettings">
-        <section
-          ref="panel"
-          class="settings-panel"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="settings-title"
-        >
-          <header class="settings-header">
-            <div class="settings-heading">
-              <span class="settings-icon" aria-hidden="true">
-                <AdjustmentsHorizontalIcon class="h-5 w-5" />
-              </span>
-              <div>
-                <p class="eyebrow">Вигляд застосунку</p>
-                <h2 id="settings-title">Налаштування</h2>
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" @keydown="handleKeydown" @click.self="closeSettings">
+    <div ref="panel" class="settings-panel relative w-[92vw] max-w-md max-h-[85vh] flex flex-col">
+      <!-- HEADER -->
+      <header class="flex-none pt-4 pb-2 px-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 id="settings-title" class="text-xl font-bold text-ink tracking-tight">Налаштування</h2>
+          <button ref="closeButton" type="button" class="close-btn" aria-label="Закрити" @click="closeSettings">
+            <XMarkIcon class="h-6 w-6" aria-hidden="true" />
+          </button>
+        </div>
+        
+        <!-- Apple-like Segmented Control -->
+        <div class="segmented-control">
+          <div class="segmented-indicator" :class="activeTab === 'blocks' ? 'translate-x-full' : 'translate-x-0'"></div>
+          <button type="button" class="segmented-btn" :class="{ 'text-ink font-semibold': activeTab === 'appearance', 'text-muted': activeTab !== 'appearance' }" @click="activeTab = 'appearance'">
+            Вигляд
+          </button>
+          <button type="button" class="segmented-btn" :class="{ 'text-ink font-semibold': activeTab === 'blocks', 'text-muted': activeTab !== 'blocks' }" @click="activeTab = 'blocks'">
+            Блоки
+          </button>
+        </div>
+      </header>
+
+      <!-- SCROLLABLE CONTENT -->
+      <div class="flex-1 overflow-y-auto px-5 pb-6 pt-2">
+        <!-- APPEARANCE TAB -->
+        <div v-show="activeTab === 'appearance'" class="space-y-6">
+          
+          <section>
+            <h3 class="section-title">РЕЖИМ</h3>
+            <div class="apple-card flex">
+              <label v-for="(mode, index) in colorModes" :key="mode.id" class="flex-1 relative border-r border-border-soft last:border-0 cursor-pointer">
+                <input type="radio" name="colorMode" class="sr-only" :value="mode.id" :checked="colorMode === mode.id" @change="$emit('update:color-mode', mode.id)" />
+                <div class="py-3 text-center transition-colors" :class="colorMode === mode.id ? 'bg-accent/10 text-accent font-semibold' : 'text-muted hover:bg-surface-hover hover:text-ink'">
+                  {{ mode.name }}
+                </div>
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h3 class="section-title">КОЛІР</h3>
+            <div class="apple-card p-4">
+              <div class="flex flex-wrap gap-4 justify-center" role="radiogroup">
+                <label v-for="accent in accentColors" :key="accent.id" class="cursor-pointer relative flex h-[2.75rem] w-[2.75rem] items-center justify-center rounded-full transition-all duration-300" 
+                  :class="accentColor === accent.id ? 'scale-110 shadow-md ring-2 ring-offset-2 ring-offset-surface' : 'hover:scale-105 hover:shadow-sm opacity-90'" 
+                  :style="{ backgroundColor: accent.color, '--tw-ring-color': accent.color }" :title="accent.name">
+                  <input type="radio" name="accentColor" class="sr-only" :value="accent.id" :checked="accentColor === accent.id" @change="$emit('update:accent-color', accent.id)" />
+                  <div v-if="accentColor === accent.id" class="absolute inset-0 rounded-full animate-ping opacity-20" :style="{ backgroundColor: accent.color }"></div>
+                  <CheckIcon v-if="accentColor === accent.id" class="h-5 w-5 text-white relative z-10" aria-hidden="true" />
+                </label>
               </div>
             </div>
-            <button
-              ref="closeButton"
-              class="settings-close"
-              type="button"
-              aria-label="Закрити налаштування"
-              @click="closeSettings"
-            >
-              <XMarkIcon class="h-5 w-5" aria-hidden="true" />
-            </button>
-          </header>
+          </section>
 
-          <div class="settings-content">
-            <fieldset class="settings-group">
-              <legend>Тема</legend>
-              <p class="group-help">Колір можна змінити будь-коли.</p>
-              <div class="theme-options" role="radiogroup" aria-label="Тема оформлення" @keydown="handleRadioKeydown">
-                <button
-                  v-for="item in appearanceThemes"
-                  :key="item.id"
-                  class="theme-option"
-                  :class="{ selected: theme === item.id }"
-                  type="button"
-                  role="radio"
-                  :aria-checked="theme === item.id"
-                  :tabindex="theme === item.id ? 0 : -1"
-                  @click="emit('update:theme', item.id)"
-                >
-                  <span class="theme-swatches" aria-hidden="true">
-                    <span
-                      v-for="color in item.colors"
-                      :key="color"
-                      :style="{ backgroundColor: color }"
-                    ></span>
-                  </span>
-                  <span class="theme-copy">
-                    <strong>{{ item.label }}</strong>
-                    <small>{{ item.description }}</small>
-                  </span>
-                  <span class="selection-mark" aria-hidden="true">
-                    <CheckIcon v-if="theme === item.id" class="h-4 w-4" />
-                  </span>
-                </button>
-              </div>
-            </fieldset>
-
-            <fieldset class="settings-group">
-              <legend>Щільність</legend>
-              <div class="segmented-control" role="radiogroup" aria-label="Щільність інтерфейсу" @keydown="handleRadioKeydown">
-                <button
-                  v-for="option in [{ id: 'comfortable', label: 'Зручна' }, { id: 'compact', label: 'Компактна' }]"
-                  :key="option.id"
-                  type="button"
-                  role="radio"
-                  :aria-checked="density === option.id"
-                  :tabindex="density === option.id ? 0 : -1"
-                  :class="{ selected: density === option.id }"
-                  @click="emit('update:density', option.id)"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-            </fieldset>
-
-            <div class="setting-row">
-              <div>
-                <strong>Плавні анімації</strong>
-                <p>Легкі переходи без зайвого сяйва</p>
-              </div>
-              <button
-                class="switch-control"
-                :class="{ active: motionEnabled }"
-                type="button"
-                role="switch"
-                :aria-checked="motionEnabled"
-                :aria-label="motionEnabled ? 'Вимкнути анімації' : 'Увімкнути анімації'"
-                @click="emit('update:motion-enabled', !motionEnabled)"
-              >
-                <span></span>
-              </button>
+          <section>
+            <h3 class="section-title">ЩІЛЬНІСТЬ</h3>
+            <div class="apple-card flex">
+              <label class="flex-1 relative border-r border-border-soft cursor-pointer">
+                <input type="radio" name="density" class="sr-only" value="comfortable" :checked="density === 'comfortable'" @change="$emit('update:density', 'comfortable')" />
+                <div class="py-3 text-center transition-colors" :class="density === 'comfortable' ? 'bg-accent/10 text-accent font-semibold' : 'text-muted hover:bg-surface-hover hover:text-ink'">
+                  Зручна
+                </div>
+              </label>
+              <label class="flex-1 relative cursor-pointer">
+                <input type="radio" name="density" class="sr-only" value="compact" :checked="density === 'compact'" @change="$emit('update:density', 'compact')" />
+                <div class="py-3 text-center transition-colors" :class="density === 'compact' ? 'bg-accent/10 text-accent font-semibold' : 'text-muted hover:bg-surface-hover hover:text-ink'">
+                  Компактна
+                </div>
+              </label>
             </div>
+          </section>
 
-            <div class="setting-row update-row">
-              <span class="update-icon" aria-hidden="true">
-                <ArrowPathRoundedSquareIcon class="h-5 w-5" />
-              </span>
-              <div>
-                <strong>Оновлення застосунку</strong>
-                <p>Версія {{ appVersion }} · {{ updateStatus }}</p>
+          <section>
+            <div class="apple-card flex items-center justify-between p-3.5 pl-4 cursor-pointer hover:bg-surface-hover transition-colors" @click="$emit('update:motion-enabled', !motionEnabled)">
+              <span class="text-[0.95rem] font-medium text-ink">Анімації інтерфейсу</span>
+              <div class="ios-switch" :class="{ 'active': motionEnabled }">
+                <div class="ios-switch-knob"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- BLOCKS TAB -->
+        <div v-show="activeTab === 'blocks'" class="space-y-4">
+          <p class="text-[0.85rem] text-muted text-center px-2">Виберіть, які елементи відображати на головній сторінці, та налаштуйте їх порядок.</p>
+          
+          <div class="apple-card flex flex-col">
+            <div v-for="(block, index) in blocks" :key="block.id" class="flex items-center justify-between p-3 pl-4 border-b border-border-soft last:border-0 transition-opacity" :class="{ 'opacity-60': !block.visible, 'bg-surface-hover': block.visible }">
+              <div class="flex items-center gap-4 flex-1 cursor-pointer" @click="toggleVisibility(index)">
+                <div class="ios-switch" :class="{ 'active': block.visible }">
+                  <div class="ios-switch-knob"></div>
+                </div>
+                <span class="font-medium text-[0.95rem] text-ink">{{ block.name }}</span>
+              </div>
+              <div class="flex items-center bg-surface rounded-[0.6rem] p-0.5 shadow-sm border border-border-soft ml-2">
+                <button type="button" @click.stop="moveUp(index)" :disabled="index === 0" class="p-1.5 rounded-md text-muted hover:text-ink hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+                  <ChevronUpIcon class="h-4 w-4 stroke-[2.5]" />
+                </button>
+                <div class="w-[1px] h-4 bg-border-soft mx-0.5"></div>
+                <button type="button" @click.stop="moveDown(index)" :disabled="index === blocks.length - 1" class="p-1.5 rounded-md text-muted hover:text-ink hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+                  <ChevronDownIcon class="h-4 w-4 stroke-[2.5]" />
+                </button>
               </div>
             </div>
           </div>
+        </div>
 
-          <footer class="settings-footer">
-            <button class="reset-button" type="button" @click="emit('reset')">
-              Відновити стандартні
-            </button>
-            <button class="done-button" type="button" @click="closeSettings">
-              Готово
-            </button>
-          </footer>
-        </section>
       </div>
-    </Transition>
-  </Teleport>
+
+      <!-- FOOTER -->
+      <footer class="flex-none px-5 py-4 border-t border-border-soft bg-surface/50 backdrop-blur-md rounded-b-[1.75rem]">
+        <div class="flex items-center justify-between">
+          <button type="button" class="text-[0.8rem] font-semibold text-danger bg-danger/10 px-3 py-1.5 rounded-lg hover:bg-danger/20 transition-colors" @click="onReset">
+            Скинути до заводських
+          </button>
+          <div class="text-right">
+            <p class="text-[0.7rem] font-semibold text-muted uppercase tracking-wider">v{{ appVersion }}</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.settings-backdrop {
+.modal-overlay {
   position: fixed;
-  z-index: 110;
   inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0.75rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
-  background: var(--overlay);
-  backdrop-filter: blur(10px);
+  z-index: 999;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: fade-in 250ms ease-out both;
 }
 
 .settings-panel {
-  width: min(100%, 33rem);
-  max-height: calc(100svh - 1.5rem);
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 1.5rem;
-  color: var(--text-primary);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-modal);
-}
-
-.settings-header,
-.settings-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.settings-header { border-bottom: 1px solid var(--border); }
-.settings-footer { border-top: 1px solid var(--border); }
-.settings-heading { display: flex; align-items: center; gap: 0.75rem; }
-.settings-heading h2 { margin: 0.25rem 0 0; font-size: 1.25rem; letter-spacing: -0.03em; }
-.settings-icon,
-.settings-close {
-  display: grid;
-  width: 3rem;
-  height: 3rem;
-  flex: none;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 0.9rem;
-  color: var(--accent);
-  background: var(--surface-soft);
-}
-.settings-close { color: var(--text-primary); transition: background 160ms ease; }
-.settings-close:hover { background: var(--surface-hover); }
-
-.settings-content { display: grid; gap: 1.25rem; padding: 1rem; }
-.settings-group { min-width: 0; margin: 0; padding: 0; border: 0; }
-.settings-group legend,
-.setting-row strong { font-size: 0.875rem; font-weight: 700; }
-.group-help,
-.setting-row p { margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.75rem; }
-.theme-options { display: grid; gap: 0.5rem; margin-top: 0.75rem; }
-.theme-option {
-  display: grid;
-  min-height: 4.65rem;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.65rem;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  color: var(--text-primary);
   background: var(--surface);
-  text-align: left;
-  grid-template-columns: 4rem minmax(0, 1fr) 1.5rem;
-  transition: border-color 160ms ease, background-color 160ms ease;
+  border: 1px solid var(--border-soft);
+  border-radius: 1.75rem;
+  box-shadow: 0 2rem 4rem rgba(0, 0, 0, 0.3), 0 0 0 1px inset rgba(255, 255, 255, 0.05);
+  animation: modal-up 350ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.theme-option:hover { background: var(--surface-hover); }
-.theme-option.selected { border-color: var(--accent); background: var(--accent-soft); }
-.theme-swatches { display: flex; height: 2.65rem; overflow: hidden; border: 1px solid var(--border); border-radius: 0.75rem; }
-.theme-swatches span { flex: 1; }
-.theme-copy { display: grid; gap: 0.2rem; min-width: 0; }
-.theme-copy strong { font-size: 0.875rem; }
-.theme-copy small { color: var(--text-secondary); font-size: 0.6875rem; line-height: 1.35; }
-.selection-mark { display: grid; width: 1.35rem; height: 1.35rem; place-items: center; border: 1px solid var(--border); border-radius: 50%; color: var(--on-accent); }
-.selected .selection-mark { border-color: var(--accent); background: var(--accent); }
 
-.segmented-control { display: grid; gap: 0.25rem; margin-top: 0.65rem; padding: 0.25rem; border: 1px solid var(--border); border-radius: 0.9rem; background: var(--surface-soft); grid-template-columns: 1fr 1fr; }
-.segmented-control button { min-height: 2.75rem; border: 0; border-radius: 0.7rem; color: var(--text-secondary); background: transparent; font: inherit; font-size: 0.75rem; font-weight: 700; }
-.segmented-control button.selected { color: var(--text-primary); background: var(--surface); box-shadow: var(--shadow-sm); }
+.close-btn {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  background: var(--surface-soft);
+  transition: all 200ms ease;
+}
+.close-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+  transform: scale(1.05);
+}
 
-.setting-row { display: flex; min-height: 4.25rem; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); }
-.update-row { justify-content: flex-start; }
-.update-icon { display: grid; width: 2.5rem; height: 2.5rem; flex: none; place-items: center; border: 1px solid var(--accent-border); border-radius: 0.8rem; color: var(--accent); background: var(--accent-soft); }
-.switch-control { position: relative; width: 3.25rem; height: 2rem; flex: none; border: 0; border-radius: 999px; background: var(--control-off); transition: background-color 180ms ease; }
-.switch-control span { position: absolute; top: 0.25rem; left: 0.25rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: white; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2); transition: transform 180ms ease; }
-.switch-control.active { background: var(--accent); }
-.switch-control.active span { transform: translateX(1.25rem); }
+.segmented-control {
+  position: relative;
+  display: flex;
+  background: var(--surface-soft);
+  border-radius: 0.9rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border-soft);
+}
+.segmented-btn {
+  flex: 1;
+  position: relative;
+  z-index: 10;
+  padding: 0.4rem 0;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 0.7rem;
+  transition: color 250ms ease;
+}
+.segmented-indicator {
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  width: calc(50% - 0.25rem);
+  background: var(--surface);
+  border-radius: 0.7rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid var(--border-soft);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
 
-.reset-button,
-.done-button { min-height: 3rem; padding: 0.65rem 0.9rem; border-radius: 0.85rem; font: inherit; font-size: 0.75rem; font-weight: 700; }
-.reset-button { border: 1px solid var(--border); color: var(--text-secondary); background: var(--surface); }
-.done-button { min-width: 7rem; border: 1px solid var(--accent); color: var(--on-accent); background: var(--accent); }
+.section-title {
+  margin-bottom: 0.4rem;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
 
-.settings-enter-active,
-.settings-leave-active { transition: opacity 180ms ease; }
-.settings-enter-active .settings-panel,
-.settings-leave-active .settings-panel { transition: transform 260ms var(--ease-out), opacity 180ms ease; }
-.settings-enter-from,
-.settings-leave-to { opacity: 0; }
-.settings-enter-from .settings-panel,
-.settings-leave-to .settings-panel { opacity: 0; transform: translateY(1rem); }
+.apple-card {
+  background: var(--surface-soft);
+  border-radius: 1rem;
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
 
-@media (min-width: 640px) {
-  .settings-backdrop { align-items: center; padding: 1.5rem; }
+.ios-switch {
+  position: relative;
+  width: 3.25rem;
+  height: 1.75rem;
+  border-radius: 1rem;
+  background: var(--control-off);
+  transition: background-color 300ms ease;
+}
+.ios-switch.active {
+  background: var(--success);
+}
+.ios-switch-knob {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-theme="dark"] .ios-switch-knob {
+  background: #f6f8fc;
+}
+.ios-switch.active .ios-switch-knob {
+  transform: translateX(1.5rem);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+  to { opacity: 1; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+}
+
+@keyframes modal-up {
+  from { opacity: 0; transform: translateY(2rem) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 </style>

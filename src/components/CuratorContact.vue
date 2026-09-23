@@ -1,40 +1,110 @@
 <script setup>
-import { AcademicCapIcon, PhoneIcon } from '@heroicons/vue/24/outline'
+import { AcademicCapIcon, PhoneIcon, UserIcon } from '@heroicons/vue/24/outline'
 import { curator } from '../data/contacts'
+import { teachersList } from '../data/schedule'
 </script>
 
 <template>
-  <section class="curator-card" aria-labelledby="curator-title">
-    <div class="curator-glow" aria-hidden="true"></div>
+  <div class="teachers-section">
+    <section class="curator-card" aria-labelledby="curator-title">
+      <div class="curator-glow" aria-hidden="true"></div>
 
-    <div class="curator-icon" aria-hidden="true">
-      <AcademicCapIcon class="h-6 w-6" />
-    </div>
+      <div class="curator-icon" aria-hidden="true">
+        <AcademicCapIcon class="h-6 w-6" />
+      </div>
 
-    <div class="relative z-10 min-w-0 flex-1">
-      <p class="text-xs font-bold uppercase tracking-[0.1em] text-neon-bright">
-        {{ curator.role }}
-      </p>
-      <h2 id="curator-title" class="mt-1 text-lg font-bold tracking-[-0.025em] text-ink">
-        {{ curator.name }}
-      </h2>
-      <a class="phone-number" :href="`tel:${curator.phone}`">
-        {{ curator.formattedPhone }}
+      <div class="relative z-10 min-w-0 flex-1">
+        <p class="text-xs font-bold uppercase tracking-[0.1em] text-neon-bright">
+          {{ curator.role }}
+        </p>
+        <h2 id="curator-title" class="mt-1 text-lg font-bold tracking-[-0.025em] text-ink">
+          {{ curator.name }}
+        </h2>
+        <a class="phone-number" :href="`tel:${curator.phone}`">
+          {{ curator.formattedPhone }}
+        </a>
+      </div>
+
+      <a
+        class="call-button"
+        :href="`tel:${curator.phone}`"
+        :aria-label="`Подзвонити куратору ${curator.name}`"
+      >
+        <PhoneIcon class="h-5 w-5" aria-hidden="true" />
+        <span>Подзвонити</span>
       </a>
-    </div>
+    </section>
 
-    <a
-      class="call-button"
-      :href="`tel:${curator.phone}`"
-      :aria-label="`Подзвонити куратору ${curator.name}`"
-    >
-      <PhoneIcon class="h-5 w-5" aria-hidden="true" />
-      <span>Подзвонити</span>
-    </a>
-  </section>
+    <div class="mt-8">
+      <h2 class="mb-4 text-xl font-bold tracking-tight text-ink">Вчителі</h2>
+      <div class="teachers-grid">
+        <div v-for="(teacher, idx) in teachersList" :key="idx" class="teacher-item">
+          <div class="teacher-icon-small" aria-hidden="true">
+            <UserIcon class="h-5 w-5" />
+          </div>
+          <div class="teacher-info">
+            <p class="subject">{{ teacher.subject }}</p>
+            <p class="name">{{ teacher.full }} <span class="text-xs font-normal opacity-70">({{ teacher.name }})</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
+.teachers-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.teachers-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.teacher-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem;
+  border-radius: 1rem;
+  background: var(--widget-base);
+  border: 1px solid var(--border-soft);
+}
+
+.teacher-icon-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.teacher-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.subject {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .curator-card {
   position: relative;
   display: flex;

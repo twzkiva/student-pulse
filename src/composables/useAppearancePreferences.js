@@ -2,25 +2,18 @@ import { shallowRef, watch } from 'vue'
 
 const STORAGE_KEY = 'campus-pulse-appearance'
 
-export const appearanceThemes = [
-  {
-    id: 'minimal',
-    label: 'Мінімал',
-    description: 'Світла, спокійна та контрастна',
-    colors: ['#f4f6fb', '#ffffff', '#3f50e7'],
-  },
-  {
-    id: 'graphite',
-    label: 'Графіт',
-    description: 'Темна тема без неонового сяйва',
-    colors: ['#101318', '#1a1f27', '#6681ff'],
-  },
-  {
-    id: 'violet',
-    label: 'Неон',
-    description: 'Оригінальна фіолетова тема',
-    colors: ['#09080d', '#181620', '#b96cff'],
-  },
+export const accentColors = [
+  { id: 'indigo', name: 'Індиго', color: '#4f46e5' },
+  { id: 'violet', name: 'Фіолетовий', color: '#9333ea' },
+  { id: 'emerald', name: 'Смарагдовий', color: '#059669' },
+  { id: 'rose', name: 'Трояндовий', color: '#e11d48' },
+  { id: 'amber', name: 'Бурштиновий', color: '#d97706' },
+]
+
+export const colorModes = [
+  { id: 'system', name: 'Системна' },
+  { id: 'light', name: 'Світла' },
+  { id: 'dark', name: 'Темна' },
 ]
 
 function readPreferences() {
@@ -34,40 +27,67 @@ function readPreferences() {
 
 export function useAppearancePreferences() {
   const saved = readPreferences()
-  const theme = shallowRef(
-    appearanceThemes.some((item) => item.id === saved.theme) ? saved.theme : 'minimal',
-  )
+  
+  // Legacy migration
+  let initialMode = saved.colorMode || 'system'
+  let initialAccent = saved.accentColor || 'indigo'
+  
+  if (saved.theme) {
+    if (saved.theme === 'minimal') { initialMode = 'light'; initialAccent = 'indigo' }
+    if (saved.theme === 'graphite') { initialMode = 'dark'; initialAccent = 'indigo' }
+    if (saved.theme === 'violet') { initialMode = 'dark'; initialAccent = 'violet' }
+  }
+
+  const colorMode = shallowRef(initialMode)
+  const accentColor = shallowRef(initialAccent)
   const density = shallowRef(saved.density === 'compact' ? 'compact' : 'comfortable')
   const motionEnabled = shallowRef(saved.motionEnabled !== false)
 
   function applyPreferences() {
     const root = document.documentElement
-    root.dataset.theme = theme.value
+    
+    let activeTheme = colorMode.value
+    if (activeTheme === 'system') {
+      activeTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+
+    root.dataset.theme = activeTheme
+    root.dataset.accent = accentColor.value
     root.dataset.density = density.value
     root.dataset.motion = motionEnabled.value ? 'full' : 'reduced'
-    root.style.colorScheme = theme.value === 'minimal' ? 'light' : 'dark'
+    root.style.colorScheme = activeTheme
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        theme: theme.value,
+        colorMode: colorMode.value,
+        accentColor: accentColor.value,
         density: density.value,
         motionEnabled: motionEnabled.value,
       }))
     } catch {
-      // Налаштування лишаються активними до перезавантаження, навіть якщо сховище недоступне.
+      // Ignore
     }
   }
 
   function resetPreferences() {
-    theme.value = 'minimal'
+    colorMode.value = 'system'
+    accentColor.value = 'indigo'
     density.value = 'comfortable'
     motionEnabled.value = true
   }
 
-  watch([theme, density, motionEnabled], applyPreferences, { immediate: true })
+  watch([colorMode, accentColor, density, motionEnabled], applyPreferences, { immediate: true })
+
+  // Listen for system theme changes if set to system
+  if (typeof window !== 'undefined') {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (colorMode.value === 'system') applyPreferences()
+    })
+  }
 
   return {
-    theme,
+    colorMode,
+    accentColor,
     density,
     motionEnabled,
     resetPreferences,

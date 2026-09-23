@@ -14,6 +14,8 @@ import CuratorContact from './components/CuratorContact.vue'
 import HomeworkSection from './components/HomeworkSection.vue'
 import QuickActions from './components/QuickActions.vue'
 import SchedulePanel from './components/SchedulePanel.vue'
+import ScheduleList from './components/ScheduleList.vue'
+import WeekParityToggle from './components/WeekParityToggle.vue'
 import { getIsoWeek, weekDays, weekTypeFor } from './data/schedule'
 import { curator } from './data/contacts'
 import { useCampusData } from './composables/useCampusData'
@@ -22,6 +24,7 @@ import { buildLessonTimeline } from './utils/scheduleTimeline'
 import { syncScheduleWidget } from './services/widgetSync'
 import { useAppUpdaterStatus } from './services/appUpdater'
 import { useAppearancePreferences } from './composables/useAppearancePreferences'
+import { useLayoutPreferences } from './composables/useLayoutPreferences'
 import { useSectionNavigation } from './composables/useSectionNavigation'
 import { useAuth } from './composables/useAuth'
 import AccountButton from './components/account/AccountButton.vue'
@@ -29,6 +32,7 @@ import AccountButton from './components/account/AccountButton.vue'
 const InfoModal = defineAsyncComponent(() => import('./components/InfoModal.vue'))
 const AppearanceSettings = defineAsyncComponent(() => import('./components/AppearanceSettings.vue'))
 const AuthModal = defineAsyncComponent(() => import('./components/account/AuthModal.vue'))
+const WelcomeModal = defineAsyncComponent(() => import('./components/WelcomeModal.vue'))
 
 const now = ref(Date.now())
 const minuteNow = computed(() => Math.floor(now.value / 60000) * 60000)
@@ -36,6 +40,12 @@ const selectedLesson = ref(null)
 const { schedules, homework, syncState, synchronize, updatedAt, isRefreshing, canRefresh } = useCampusData()
 const isSettingsOpen = shallowRef(false)
 const isAccountOpen = shallowRef(false)
+const showWelcomeModal = ref(!globalThis.localStorage?.getItem('hasSeenWelcome'))
+
+function closeWelcomeModal() {
+  showWelcomeModal.value = false
+  try { globalThis.localStorage?.setItem('hasSeenWelcome', 'true') } catch {}
+}
 const authNotice = shallowRef('')
 const authCallbackError = shallowRef('')
 const googleErrorMessages = {
@@ -45,17 +55,13 @@ const googleErrorMessages = {
   token_invalid_grant: 'Google відхилив одноразовий код входу. Спробуйте ще раз.',
   account_conflict: 'Ця пошта вже прив’язана до іншого Google-акаунта.',
 }
-const botUrl = 'https://t.me/R0zkladYrokiw_bot'
+const botUrl = 'https://t.me/ki13homeworkbot'
 const curatorPhoneUrl = `tel:${curator.phone}`
 const { currentVersion, updateStatus } = useAppUpdaterStatus()
+const { blocks: layoutBlocks } = useLayoutPreferences()
 const isClassPreview = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get('preview') === 'class'
-const {
-  theme,
-  density,
-  motionEnabled,
-  resetPreferences,
-} = useAppearancePreferences()
+const { colorMode, accentColor, density, motionEnabled, resetPreferences } = useAppearancePreferences()
 const { activeNavigation, navigate } = useSectionNavigation(motionEnabled)
 const {
   user: accountUser,
@@ -133,7 +139,30 @@ const todaySchedule = computed(() => (
 ))
 const currentLesson = computed(() => todaySchedule.value.find((lesson) => lesson.state === 'Зараз'))
 const nextLesson = computed(() => todaySchedule.value.find((lesson) => lesson.state === 'Далі'))
-const featuredLesson = computed(() => currentLesson.value ?? nextLesson.value)
+
+const globalNextLesson = computed(() => {
+  if (currentLesson.value) return currentLesson.value;
+  if (nextLesson.value) return nextLesson.value;
+  
+  let checkDate = new Date(now.value);
+  for (let i = 1; i <= 14; i++) {
+    checkDate.setDate(checkDate.getDate() + 1);
+    const wType = weekTypeFor(checkDate);
+    const dKey = weekDays.find((day) => day.jsDay === campusDate(checkDate).jsDay)?.key ?? null;
+    if (!dKey) continue;
+    
+    const dayLessons = schedules.value[wType]?.[dKey] ?? [];
+    const firstLesson = dayLessons.find(l => !l.isEmpty);
+    if (firstLesson) {
+      const futureTimeline = buildLessonTimeline(dayLessons, checkDate.getTime(), false);
+      const nextL = futureTimeline.find(l => !l.isEmpty);
+      if (nextL) return nextL;
+    }
+  }
+  return null;
+})
+
+const featuredLesson = computed(() => globalNextLesson.value)
 const featuredMode = computed(() => (currentLesson.value ? 'current' : 'next'))
 
 const formattedDate = computed(() => {
@@ -312,41 +341,67 @@ watch(
         </div>
       </header>
 
-      <DayOverview :lessons="todaySchedule" :homework-count="homework.length" @navigate="selectNavigation({ id: $event })" />
+      <!-- ГОЛОВНА (HOME) -->
+      <div v-show="activeNavigation === 'home'" class="tab-pane">
+        <DayOverview :lessons="todaySchedule" :homework-count="homework.length" @navigate="selectNavigation({ id: $event })" />
+        
+        <CurrentClassWidget
+          v-if="featuredLesson"
+          :lesson="featuredLesson"
+          :mode="featuredMode"
+          :now="now"
+          class="mt-4"
+        />
+        <section v-else class="day-finished mt-4" aria-labelledby="day-finished-title">
+          <div class="finished-icon" aria-hidden="true">
+            <CheckCircleIcon class="h-6 w-6" />
+          </div>
+          <div>
+            <p class="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.14em] text-neon-bright">
+              Навчальний день
+            </p>
+            <h2 id="day-finished-title" class="text-lg font-bold text-ink">
+              {{ !todayKey ? 'Вихідний день' : todaySchedule.length ? 'На сьогодні пари завершено' : 'Занять немає' }}
+            </h2>
+            <p class="mt-1 text-sm text-muted">Перейдіть на вкладку Розклад, щоб побачити більше.</p>
+          </div>
+        </section>
 
-      <div class="campus-grid">
-      <div class="schedule-column">
-      <CurrentClassWidget
-        v-if="featuredLesson"
-        :lesson="featuredLesson"
-        :mode="featuredMode"
-        :now="now"
-      />
-
-      <section v-else class="day-finished" aria-labelledby="day-finished-title">
-        <div class="finished-icon" aria-hidden="true">
-          <CheckCircleIcon class="h-6 w-6" />
+        <!-- РОЗКЛАД (КОМПАКТНИЙ) -->
+        <div class="mt-5">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-lg font-bold text-ink">Розклад</h2>
+            <button v-if="(activeDayKey !== todayKey || selectedWeekType !== automaticWeekType) && todayKey" type="button" @click="activeDayKey = todayKey; selectedWeekType = automaticWeekType" class="text-[0.7rem] font-bold text-accent px-2 py-1 bg-accent-soft rounded-md" style="margin-right: -4px;">Сьогодні</button>
+          </div>
+          <WeekParityToggle v-model="selectedWeekType" :automatic-type="automaticWeekType" style="margin-bottom: 0.4rem;" />
+          <div class="day-tabs-home" style="margin-bottom: 0.6rem;">
+            <button v-for="item in weekDays" :key="item.key" type="button" class="day-tab-home" :class="{ active: activeDayKey === item.key }" @click="activeDayKey = item.key">
+              {{ item.short }}
+              <span v-if="todayKey === item.key" class="today-dot" aria-hidden="true"></span>
+            </button>
+          </div>
+          <ScheduleList v-if="selectedSchedule.length" :lessons="selectedSchedule" :homework="homework" @show-info="openLessonInfo" />
+          <div v-else class="py-6 text-center text-sm font-medium text-muted bg-surface rounded-2xl border border-border">На цей день пар немає 🎉</div>
         </div>
-        <div>
-          <p class="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.14em] text-neon-bright">
-            Навчальний день
-          </p>
-          <h2 id="day-finished-title" class="text-lg font-bold text-ink">
-            {{ !todayKey ? 'Сьогодні вихідний' : todaySchedule.length ? 'На сьогодні пари завершено' : 'Сьогодні немає пар' }}
-          </h2>
-          <p class="mt-1 text-sm text-muted">Можна переглянути розклад на інший день нижче.</p>
-        </div>
-      </section>
 
-      <SchedulePanel v-model:day="activeDayKey" v-model:week="selectedWeekType" :lessons="selectedSchedule" :today-key="todayKey" :automatic-type="automaticWeekType" :week-number="weekNumber" @show-info="openLessonInfo" />
+        <QuickActions :bot-url="botUrl" :phone-url="curatorPhoneUrl" class="mt-6" />
+        <SyncStatus :state="syncState" :refreshing="isRefreshing" :can-refresh="canRefresh" :updated-at="updatedAt" class="mt-6" @refresh="synchronize" />
       </div>
-      <aside class="campus-sidebar" aria-label="Завдання та корисне">
-        <QuickActions :bot-url="botUrl" :phone-url="curatorPhoneUrl" />
-        <HomeworkSection :items="homework" :bot-url="botUrl" :now="minuteNow" class="mt-5" />
-        <BellSchedule class="mt-4" />
-        <CuratorContact id="curator-contact" tabindex="-1" class="mt-4 scroll-mt-5" />
-        <SyncStatus :state="syncState" :refreshing="isRefreshing" :can-refresh="canRefresh" :updated-at="updatedAt" class="mt-4" @refresh="synchronize" />
-      </aside>
+
+      <!-- РОЗКЛАД (SCHEDULE) -->
+      <div v-show="activeNavigation === 'schedule'" class="tab-pane">
+        <SchedulePanel v-model:day="activeDayKey" v-model:week="selectedWeekType" :lessons="selectedSchedule" :homework="homework" :today-key="todayKey" :automatic-type="automaticWeekType" :week-number="weekNumber" @show-info="openLessonInfo" />
+        <BellSchedule class="mt-6" />
+      </div>
+
+      <!-- ЗАВДАННЯ (HOMEWORK) -->
+      <div v-show="activeNavigation === 'homework'" class="tab-pane">
+        <HomeworkSection :items="homework" :bot-url="botUrl" :now="minuteNow" />
+      </div>
+
+      <!-- КУРАТОР (TEACHERS) -->
+      <div v-show="activeNavigation === 'teachers'" class="tab-pane">
+        <CuratorContact id="curator-contact" tabindex="-1" />
       </div>
 
       <footer class="app-footer mt-10 py-6 text-center text-xs leading-5 text-muted">
@@ -364,18 +419,25 @@ watch(
 
     <AppearanceSettings
       v-if="isSettingsOpen"
-      :theme="theme"
+      :color-mode="colorMode"
+      :accent-color="accentColor"
       :density="density"
       :motion-enabled="motionEnabled"
       :app-version="currentVersion"
       :update-status="updateStatus"
-      @update:theme="theme = $event"
+      @update:color-mode="colorMode = $event"
+      @update:accent-color="accentColor = $event"
       @update:density="density = $event"
       @update:motion-enabled="motionEnabled = $event"
       @reset="resetPreferences"
       @close="isSettingsOpen = false"
     />
 
+    <WelcomeModal
+      v-if="showWelcomeModal"
+      @close="closeWelcomeModal"
+    />
+    
     <AuthModal
       v-if="isAccountOpen"
       :user="accountUser"
@@ -483,6 +545,25 @@ watch(
 @keyframes content-rise {
   from { opacity: 0; translate: 0 0.85rem; }
   to { opacity: 1; translate: 0 0; }
+}
+
+
+.tab-pane { max-width: 768px; margin: 0 auto; }
+
+.day-tabs-home { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .25rem; padding: .25rem; border: 1px solid var(--border); border-radius: .95rem; background: var(--surface-soft); }
+.day-tab-home { position: relative; min-height: 2.35rem; border: 0; border-radius: .7rem; color: var(--text-secondary); background: transparent; font: inherit; font-size: .875rem; font-weight: 650; transition: background-color 150ms ease, color 150ms ease; cursor: pointer; }
+.day-tab-home:hover { background: var(--surface-hover); }
+.day-tab-home.active { background: var(--accent); color: var(--on-accent); }
+.day-tab-home .today-dot { position: absolute; bottom: .25rem; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+
+.tab-pane { 
+  animation: tab-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+@keyframes tab-enter {
+  0% { opacity: 0; transform: translateY(12px) scale(0.99); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 </style>

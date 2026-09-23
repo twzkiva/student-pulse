@@ -123,16 +123,7 @@ onBeforeUnmount(() => {
               </div>
             </article>
 
-            <article class="info-block">
-              <div class="info-icon" aria-hidden="true">
-                <MapPinIcon class="h-5 w-5" />
-              </div>
-              <div>
-                <p class="info-label">Навігація</p>
-                <h3 class="mt-1 text-sm font-semibold text-ink">Як знайти аудиторію {{ lesson.room }}</h3>
-                <p class="detail-copy mt-2 text-sm leading-6">{{ lesson.route }}</p>
-              </div>
-            </article>
+            
           </div>
 
           <button class="close-button relative z-10" type="button" @click="closeModal">

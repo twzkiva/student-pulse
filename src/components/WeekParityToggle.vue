@@ -28,8 +28,8 @@ defineEmits(['update:modelValue'])
 .week-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.3rem;
-  margin-bottom: 0.65rem;
+  gap: 0.25rem;
+  margin-bottom: 0;
   padding: 0.28rem;
   border: 1px solid var(--border);
   border-radius: 0.95rem;
@@ -37,7 +37,7 @@ defineEmits(['update:modelValue'])
 }
 .week-option {
   display: inline-flex;
-  min-height: 3rem;
+  min-height: 2.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;

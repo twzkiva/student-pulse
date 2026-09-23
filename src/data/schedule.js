@@ -18,42 +18,106 @@ export const weekDays = [
 
 // Стартова копія наданого розкладу. Парний і непарний тижні
 // зберігаються окремо, тому бот зможе змінювати їх незалежно.
-const baseRawSchedule = {
-  monday: [
-    { period: 1, room: '411', subject: 'Екологія' },
-    { period: 2, room: '407', subject: 'Математика' },
-    { period: 3, room: '410', subject: 'Українська література' },
-    { period: 4, room: null, subject: null },
-  ],
-  tuesday: [
-    { period: 1, room: '301', subject: 'Основи правознавства' },
-    { period: 2, room: '305л', subject: 'Захист України' },
-    { period: 3, room: '418 / кфв', subject: 'Основи економічної теорії / Фізкультура' },
-    { period: 4, room: '214 / 408', subject: 'Зарубіжна література / Історія України' },
-  ],
-  wednesday: [
-    { period: 1, room: '302 / 313л', subject: 'Іноземна мова' },
-    { period: 2, room: '401 / 406', subject: 'Всесвітня історія / Хімія' },
-    { period: 3, room: '410', subject: 'Українська мова' },
-    { period: 4, room: '405', subject: 'Біологія' },
-  ],
-  thursday: [
-    { period: 1, room: '413', subject: 'Фізика і астрономія' },
-    { period: 2, room: '320', subject: 'Інформатика' },
-    { period: 3, room: 'кфв', subject: 'Фізична культура' },
-    { period: 4, room: '406', subject: 'Математика' },
-  ],
-  friday: [
-    { period: 1, room: '413', subject: 'Фізика і астрономія' },
-    { period: 2, room: '418', subject: 'Основи економічної теорії' },
-    { period: 3, room: '320', subject: 'Інформатика' },
-    { period: 4, room: null, subject: null },
-  ],
-}
-
 const rawSchedules = {
-  odd: structuredClone(baseRawSchedule),
-  even: structuredClone(baseRawSchedule),
+  even: {
+    monday: [
+      { period: 1, room: '411', subject: 'Екологія' },
+      { period: 2, room: '407', subject: 'Математика' },
+      { period: 3, room: '410', subject: 'Українська література' },
+    ],
+    tuesday: [
+      { period: 1, room: '301', subject: 'Основи правознавства' },
+      { period: 2, room: '305л', subject: 'Захист України' },
+      { period: 3, room: '418', subject: 'Основи економічної теорії' },
+      { period: 4, room: '214', subject: 'Зарубіжна література' },
+    ],
+    wednesday: [
+      { period: 1, room: '302 / 313л', subject: 'Іноземна мова' },
+      { period: 2, room: '401', subject: 'Всесвітня історія' },
+      { period: 3, room: '410', subject: 'Українська мова' },
+      { period: 4, room: '405', subject: 'Біологія' },
+    ],
+    thursday: [
+      { period: 1, room: '413', subject: 'Фізика і астрономія' },
+      { period: 2, room: '320', subject: 'Інформатика' },
+      { period: 3, room: 'кфв', subject: 'Фізкультура' },
+      { period: 4, room: '406', subject: 'Математика' },
+    ],
+    friday: [
+      { period: 1, room: '413', subject: 'Фізика і астрономія' },
+      { period: 2, room: '418', subject: 'Основи економічної теорії' },
+      { period: 3, room: '320', subject: 'Інформатика' },
+    ]
+  },
+  odd: {
+    monday: [
+      { period: 1, room: '411', subject: 'Екологія' },
+      { period: 2, room: '407', subject: 'Математика' },
+      { period: 3, room: '410', subject: 'Українська література' },
+    ],
+    tuesday: [
+      { period: 1, room: '301', subject: 'Основи правознавства' },
+      { period: 2, room: '305л', subject: 'Захист України' },
+      { period: 3, room: 'кфв', subject: 'Фізкультура' },
+      { period: 4, room: '408', subject: 'Історія України' },
+    ],
+    wednesday: [
+      { period: 1, room: '302 / 313л', subject: 'Іноземна мова' },
+      { period: 2, room: '406', subject: 'Хімія' },
+      { period: 3, room: '410', subject: 'Українська мова' },
+    ],
+    thursday: [
+      { period: 1, room: '413', subject: 'Фізика і астрономія' },
+      { period: 2, room: '320', subject: 'Інформатика' },
+      { period: 3, room: 'кфв', subject: 'Фізкультура' },
+      { period: 4, room: '406', subject: 'Математика' },
+    ],
+    friday: [
+      { period: 1, room: '413', subject: 'Фізика і астрономія' },
+      { period: 2, room: '418', subject: 'Основи економічної теорії' },
+      { period: 3, room: '320', subject: 'Інформатика' },
+    ]
+  }
+};
+
+
+export const teachersList = [
+  { subject: 'Українська мова, література', name: 'Оксана Василівна', full: 'Вербовська О.В.' },
+  { subject: 'Біологія', name: 'Ольга Василівна', full: 'Страхоцька О.В.' },
+  { subject: 'Куратор (фіз-культура)', name: 'Микола Ігорович', full: 'Шиц М.І.' },
+  { subject: 'Фізика і астрономія', name: 'Мирослава Ярославівна', full: 'Шеремета М.Я.' },
+  { subject: 'Інформатика', name: 'Ліда Едуардівна', full: 'Мудракова Л.Е.' },
+  { subject: 'Математика', name: 'Христина Володимирівна', full: 'Кухар Х.В.' },
+  { subject: 'Основи економічної теорії', name: 'Тетяна Ігорівна', full: 'Підкуймуха Т.І.' },
+  { subject: 'Екологія', name: 'Олена Вікторівна', full: 'Мельникова О.В.' },
+  { subject: 'Основи правознавства', name: 'Оксана Богданівна', full: 'Туркоцьо О.Б.' },
+  { subject: 'Захист України', name: 'Юрій Ігорович', full: 'Тибель Ю.І.' },
+  { subject: 'Історія України, Всесвітня історія', name: 'Олексій Анатолійович', full: 'Мировський О.А.' },
+  { subject: 'Хімія', name: 'Юрій Пилипович', full: 'Музичко Ю.П.' },
+  { subject: 'Зарубіжна література', name: 'Ірина Григорівна', full: 'Щерба І.Г.' },
+];
+
+function getTeacherForSubject(subjectString) {
+  if (!subjectString) return 'Пари немає';
+  const subs = subjectString.split('/').map(s => s.trim());
+  const teachers = subs.map(sub => {
+    if (sub.includes('Українськ')) return 'Оксана Василівна';
+    if (sub.includes('Біологія')) return 'Ольга Василівна';
+    if (sub.includes('Фізика')) return 'Мирослава Ярославівна';
+    if (sub.includes('Інформатика')) return 'Ліда Едуардівна';
+    if (sub.includes('Математика')) return 'Христина Володимирівна';
+    if (sub.includes('економі')) return 'Тетяна Ігорівна';
+    if (sub.includes('Екологія')) return 'Олена Вікторівна';
+    if (sub.includes('правознавства')) return 'Оксана Богданівна';
+    if (sub.includes('Захист')) return 'Юрій Ігорович';
+    if (sub.includes('Історія') || sub.includes('історія')) return 'Олексій Анатолійович';
+    if (sub.includes('Хімія')) return 'Юрій Пилипович';
+    if (sub.includes('Зарубіжна')) return 'Ірина Григорівна';
+    if (sub.includes('Фіз')) return 'Микола Ігорович';
+    if (sub.includes('Іноземна')) return 'Викладач іноземної';
+    return 'Інформацію не додано';
+  });
+  return teachers.join(' / ');
 }
 
 function navigationFor(room) {
@@ -86,7 +150,7 @@ function createLesson(weekType, dayKey, entry) {
     subject: entry.subject ?? 'Вікно — пари немає',
     room: entry.room ?? '—',
     isEmpty,
-    teacher: isEmpty ? 'Пари немає' : 'Інформацію ще не додано',
+    teacher: isEmpty ? 'Пари немає' : getTeacherForSubject(entry.subject),
     dossier: isEmpty
       ? 'Цей час вільний від занять.'
       : 'Вимоги до здачі ще уточнюються. Ці дані можна оновити через Telegram-бота.',

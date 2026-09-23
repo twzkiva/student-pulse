@@ -1,4 +1,4 @@
-import { handleAuth } from './auth.js'
+import { handleAuth, requireAdmin } from './auth.js'
 
 const DAY_LABELS = {
   monday: 'Понеділок',
@@ -56,10 +56,30 @@ const JSON_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
-  'access-control-allow-headers': 'content-type',
-  'cache-control': 'no-store',
-  'referrer-policy': 'no-referrer',
+  'access-control-allow-headers': 'content-type, authorization, x-telegram-bot-api-secret-token',
+  'cache-control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'referrer-policy': 'strict-origin-when-cross-origin',
   'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'x-xss-protection': '1; mode=block',
+  'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+  'content-security-policy': "default-src 'self' https:; frame-ancestors 'none'; object-src 'none'; base-uri 'none';"
+}
+
+function getCorsHeaders(request, env) {
+  const origin = request.headers.get('origin')
+  let allowedOrigin = '*'
+  if (env.PUBLIC_ORIGIN) {
+    allowedOrigin = env.PUBLIC_ORIGIN
+    if (origin === env.PUBLIC_ORIGIN || origin?.startsWith('http://localhost:')) {
+      allowedOrigin = origin
+    }
+  }
+  return {
+    ...JSON_HEADERS,
+    'access-control-allow-origin': allowedOrigin,
+    'access-control-allow-credentials': 'true',
+  }
 }
 
 const UPDATE_APP_ID = 'ua.edu.campus.pulse'
@@ -67,8 +87,29 @@ const UPDATE_MANIFEST_PATH = '/updates/manifest.json'
 
 const textEncoder = new TextEncoder()
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS })
+
+// Захист від DDoS/Спаму (In-Memory IP Rate Limiter)
+const ipRequests = new Map();
+function isRateLimited(ip) {
+  if (!ip) return false;
+  const now = Date.now();
+  const data = ipRequests.get(ip) || { count: 0, resetTime: now + 60000 };
+  
+  if (now > data.resetTime) {
+    data.count = 1;
+    data.resetTime = now + 60000;
+  } else {
+    data.count++;
+  }
+  
+  ipRequests.set(ip, data);
+  // Максимум 200 запитів за хвилину з однієї IP (запобігає флуду)
+  return data.count > 200;
+}
+
+function json(data, status = 200, request = null, env = null) {
+  const headers = request && env ? getCorsHeaders(request, env) : JSON_HEADERS
+  return new Response(JSON.stringify(data), { status, headers })
 }
 
 class RequestError extends Error {
@@ -268,7 +309,7 @@ function isAdmin(env, message) {
   return allowed.includes(String(message.from?.id))
 }
 
-async function sendTelegram(env, chatId, text) {
+async function sendTelegram(env, chatId, text, options = {}) {
   const apiBaseUrl = String(env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org').replace(/\/$/, '')
   const response = await fetch(`${apiBaseUrl}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
@@ -277,6 +318,7 @@ async function sendTelegram(env, chatId, text) {
       chat_id: chatId,
       text,
       disable_web_page_preview: true,
+      ...options
     }),
     signal: AbortSignal.timeout(12000),
   })
@@ -303,174 +345,295 @@ async function scheduleText(db, dayKey, weekType) {
   return lines.join('\n')
 }
 
+
+async function editTelegramMessage(env, chatId, messageId, text, options = {}) {
+  const apiBaseUrl = String(env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org').replace(/\/$/, '')
+  await fetch(`${apiBaseUrl}/bot${env.TELEGRAM_BOT_TOKEN}/editMessageText`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, ...options })
+  })
+}
+
+async function deleteTelegramMessage(env, chatId, messageId) {
+  const apiBaseUrl = String(env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org').replace(/\/$/, '')
+  await fetch(`${apiBaseUrl}/bot${env.TELEGRAM_BOT_TOKEN}/deleteMessage`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId })
+  })
+}
+
+async function sendChatAction(env, chatId, action = 'typing') {
+  const apiBaseUrl = String(env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org').replace(/\/$/, '')
+  await fetch(`${apiBaseUrl}/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action })
+  })
+}
+
 async function handleTelegramUpdate(env, update) {
-  const message = update.message
-  if (typeof message?.text !== 'string' || !message.text.trim() || !Number.isSafeInteger(message.chat?.id)) return
-  if (!Number.isSafeInteger(update.update_id) || update.update_id < 0) throw new RequestError(422, 'Невірний update_id')
-  if (await env.DB.prepare('SELECT update_id FROM telegram_updates WHERE update_id = ?').bind(update.update_id).first()) return
+  const apiBaseUrl = String(env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org').replace(/\/$/, '');
+  
+  const answerCb = async (cbId, text = '') => {
+    await fetch(`${apiBaseUrl}/bot${env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: cbId, text })
+    });
+  };
 
-  const chatId = message.chat.id
-  const text = message.text.trim()
-  const command = text.split(/\s+/, 1)[0].split('@')[0].toLowerCase()
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  if (command === '/start' || command === '/help') {
-    const parameter = text.split(/\s+/, 2)[1] || ''
-    const prefix = parameter === 'report' ? 'Опиши помилку командою /report текст.\n\n' : ''
-    await sendTelegram(env, chatId, prefix + HELP_TEXT)
-    return
+  if (update.callback_query) {
+    const cb = update.callback_query;
+    const data = cb.data || '';
+    const chatId = cb.message.chat.id;
+    const msgId = cb.message.message_id;
+
+    if (data === 'menu_main') {
+      await editTelegramMessage(env, chatId, msgId, '📚 Головне меню Кампус Пульс', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '➕ Додати ДЗ на сьогодні', callback_data: 'menu_add' }],
+            [{ text: '✏️ Редагувати ДЗ', callback_data: 'menu_edit' }],
+            [{ text: '✅ Завершити / Видалити ДЗ', callback_data: 'menu_del' }]
+          ]
+        }
+      });
+      await answerCb(cb.id);
+      return;
+    }
+
+    if (data === 'menu_add') {
+      const dateInfo = kyivDateInfo();
+      const weekType = currentWeekType();
+      const rows = await getSchedule(env.DB, weekType, dateInfo.dayKey);
+      const validRows = rows.filter(r => r.subject && r.subject.trim() && !r.subject.includes('Вікно'));
+      
+      if (validRows.length === 0) {
+        await editTelegramMessage(env, chatId, msgId, 'Сьогодні пар немає, або розклад ще не додано.', {
+          reply_markup: { inline_keyboard: [[{ text: '⬅️ Назад', callback_data: 'menu_main' }]] }
+        });
+      } else {
+        const inline_keyboard = validRows.map(row => ([{
+          text: row.subject,
+          callback_data: `add_${row.subject.substring(0, 50)}`
+        }]));
+        inline_keyboard.push([{ text: '⬅️ Назад', callback_data: 'menu_main' }]);
+        await editTelegramMessage(env, chatId, msgId, 'Оберіть предмет для додавання ДЗ на сьогодні:', { reply_markup: { inline_keyboard } });
+      }
+      await answerCb(cb.id);
+      return;
+    }
+
+    if (data === 'menu_edit' || data === 'menu_del') {
+      const isEdit = data === 'menu_edit';
+      const result = await env.DB.prepare('SELECT id, subject, text FROM homework WHERE completed = 0 ORDER BY id DESC LIMIT 20').all();
+      if (!result.results.length) {
+        await editTelegramMessage(env, chatId, msgId, 'Немає активних домашніх завдань.', {
+          reply_markup: { inline_keyboard: [[{ text: '⬅️ Назад', callback_data: 'menu_main' }]] }
+        });
+      } else {
+        const inline_keyboard = result.results.map(item => ([{
+          text: `${isEdit ? '✏️' : '✅'} ${item.subject}`,
+          callback_data: `${isEdit ? 'edit' : 'del'}_${item.id}`
+        }]));
+        inline_keyboard.push([{ text: '⬅️ Назад', callback_data: 'menu_main' }]);
+        await editTelegramMessage(env, chatId, msgId, isEdit ? 'Оберіть ДЗ для редагування:' : 'Оберіть ДЗ для завершення:', { reply_markup: { inline_keyboard } });
+      }
+      await answerCb(cb.id);
+      return;
+    }
+
+    if (data.startsWith('add_')) {
+      const subject = data.substring(4);
+      await deleteTelegramMessage(env, chatId, msgId);
+      await sendChatAction(env, chatId, 'typing');
+      await sleep(300);
+      await sendTelegram(env, chatId, `➕ Напишіть завдання для: ${subject}`, { reply_markup: { force_reply: true, selective: true } });
+      await answerCb(cb.id);
+      return;
+    }
+
+    if (data.startsWith('edit_')) {
+      const hwId = data.substring(5);
+      await deleteTelegramMessage(env, chatId, msgId);
+      await sendChatAction(env, chatId, 'typing');
+      await sleep(300);
+      await sendTelegram(env, chatId, `✏️ Редагування ДЗ #${hwId}. Напишіть новий текст:`, { reply_markup: { force_reply: true, selective: true } });
+      await answerCb(cb.id);
+      return;
+    }
+
+    if (data.startsWith('del_')) {
+      const hwId = Number(data.substring(4));
+      await env.DB.prepare('UPDATE homework SET completed = 1 WHERE id = ?').bind(hwId).run();
+      
+      // Re-fetch remaining to edit the menu directly instead of flooding
+      const result = await env.DB.prepare('SELECT id, subject FROM homework WHERE completed = 0 ORDER BY id DESC LIMIT 20').all();
+      if (!result.results.length) {
+        await editTelegramMessage(env, chatId, msgId, '✅ Всі завдання успішно завершені!', {
+          reply_markup: { inline_keyboard: [[{ text: '⬅️ На головну', callback_data: 'menu_main' }]] }
+        });
+      } else {
+        const inline_keyboard = result.results.map(item => ([{
+          text: `✅ ${item.subject}`,
+          callback_data: `del_${item.id}`
+        }]));
+        inline_keyboard.push([{ text: '⬅️ Назад', callback_data: 'menu_main' }]);
+        await editTelegramMessage(env, chatId, msgId, 'Оберіть наступне ДЗ для завершення:', { reply_markup: { inline_keyboard } });
+      }
+      
+      await answerCb(cb.id, '✅ Завдання видалено!');
+      return;
+    }
+
+    return;
   }
 
-  const dateInfo = kyivDateInfo()
-  const weekType = currentWeekType()
+  const message = update.message;
+  if (typeof message?.text !== 'string' || !message.text.trim() || !Number.isSafeInteger(message.chat?.id)) return;
+  
+  if (!Number.isSafeInteger(update.update_id) || update.update_id < 0) throw new RequestError(422, 'Невірний update_id');
+  
+  const isDuplicate = await env.DB.prepare('SELECT update_id FROM telegram_updates WHERE update_id = ?').bind(update.update_id).first();
+  if (isDuplicate) return;
+
+  const chatId = message.chat.id;
+  const text = message.text.trim();
+  const command = text.split(/\s+/, 1)[0].split('@')[0].toLowerCase();
+
+  if (!isAdmin(env, message)) {
+    await sendTelegram(env, chatId, 'Ви не маєте доступу до цього бота.');
+    return;
+  }
+
+  if (message.reply_to_message && message.reply_to_message.text) {
+    const rText = message.reply_to_message.text;
+    
+    if (rText.startsWith('Напишіть завдання для: ') || rText.startsWith('➕ Напишіть завдання для: ')) {
+      const subject = rText.replace('Напишіть завдання для: ', '').replace('➕ Напишіть завдання для: ', '').trim();
+      await sendChatAction(env, chatId, 'typing');
+      await sleep(300);
+      await runTelegramMutation(env, update.update_id,
+        'INSERT INTO homework (subject, text, due_date) SELECT ?, ?, NULL WHERE /* once */', [subject, text]);
+      await sendTelegram(env, chatId, `✅ Додано нове завдання з предмету "${subject}"!`, {
+        reply_markup: { inline_keyboard: [[{ text: '⬅️ В меню', callback_data: 'menu_main' }]] }
+      });
+      return;
+    }
+    
+    if (rText.startsWith('✏️ Редагування ДЗ #')) {
+      const match = rText.match(/#(\d+)\./);
+      if (match && match[1]) {
+        const hwId = Number(match[1]);
+        await sendChatAction(env, chatId, 'typing');
+        await sleep(300);
+        await runTelegramMutation(env, update.update_id,
+          'UPDATE homework SET text = ? WHERE id = ? AND /* once */', [text, hwId]);
+        await sendTelegram(env, chatId, `✅ Завдання #${hwId} успішно оновлено!`, {
+          reply_markup: { inline_keyboard: [[{ text: '⬅️ В меню', callback_data: 'menu_main' }]] }
+        });
+        return;
+      }
+    }
+  }
+
+  if (command === '/start' || command === '/menu' || command === '/homework') {
+    await sendChatAction(env, chatId, 'typing');
+    await sleep(400);
+    await sendTelegram(env, chatId, '📚 Головне меню Кампус Пульс', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '➕ Додати ДЗ на сьогодні', callback_data: 'menu_add' }],
+          [{ text: '✏️ Редагувати ДЗ', callback_data: 'menu_edit' }],
+          [{ text: '✅ Завершити / Видалити ДЗ', callback_data: 'menu_del' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  const dateInfo = kyivDateInfo();
+  const weekType = currentWeekType();
 
   if (command === '/today') {
+    await sendChatAction(env, chatId, 'typing');
+    await sleep(400);
     const reply = DAY_LABELS[dateInfo.dayKey]
       ? await scheduleText(env.DB, dateInfo.dayKey, weekType)
-      : 'Сьогодні вихідний — навчальних пар немає.'
-    await sendTelegram(env, chatId, reply)
-    return
+      : 'Сьогодні вихідний!';
+    await sendTelegram(env, chatId, reply);
+    return;
   }
 
   if (command === '/week') {
-    const days = []
-    for (const dayKey of Object.keys(DAY_LABELS)) days.push(await scheduleText(env.DB, dayKey, weekType))
-    await sendTelegram(env, chatId, days.join('\n\n'))
-    return
+    await sendChatAction(env, chatId, 'typing');
+    await sleep(600);
+    const days = [];
+    for (const dayKey of Object.keys(DAY_LABELS)) days.push(await scheduleText(env.DB, dayKey, weekType));
+    await sendTelegram(env, chatId, days.join('\n\n'));
+    return;
   }
 
-  if (command === '/report') {
-    const reportText = text.slice(text.indexOf(' ') + 1).trim()
-    if (!text.includes(' ') || !reportText) {
-      await sendTelegram(env, chatId, 'Напиши так: /report що саме не так у розкладі')
-      return
-    }
-    if (reportText.length > 2000) {
-      await sendTelegram(env, chatId, 'Скороти повідомлення до 2000 символів.')
-      return
-    }
-    await runTelegramMutation(env, update.update_id,
-      'INSERT INTO error_reports (text, reporter_chat_id) SELECT ?, ? WHERE /* once */', [reportText, String(chatId)])
-    await sendTelegram(env, chatId, 'Дякую! Повідомлення збережено й передано куратору.')
-    if (env.TELEGRAM_ADMIN_CHAT_ID && String(env.TELEGRAM_ADMIN_CHAT_ID) !== String(chatId)) {
-      await sendTelegram(env, env.TELEGRAM_ADMIN_CHAT_ID, `Нове повідомлення про помилку:\n${reportText}`)
-    }
-    return
-  }
-
-  if (command === '/homework' && !/\s/.test(text)) {
-    const result = await env.DB.prepare('SELECT * FROM homework WHERE completed = 0 ORDER BY due_date, id').all()
-    const lines = result.results.map((item) => `#${item.id} · ${item.subject} · ${item.due_date || 'без дати'}\n${item.text}`)
-    await sendTelegram(env, chatId, lines.length ? lines.join('\n\n').slice(0, 4000) : 'Активних завдань немає.')
-    return
-  }
-
-  if (!isAdmin(env, message)) {
-    await sendTelegram(env, chatId, 'Ця команда доступна лише куратору. Скористайся /today, /week або /report.')
-    return
-  }
-
-  if (command === '/setlesson') {
-    const match = text.match(/^\/setlesson(?:@\w+)?\s+(\S+)\s+(\S+)\s+(\d+)\s+(.+?)\s*\|\s*(.+)$/i)
-    const parsedWeek = match ? WEEK_ALIASES[match[1].toLowerCase()] : null
-    const parsedDay = match ? DAY_ALIASES[match[2].toLowerCase()] : null
-    const period = match ? Number(match[3]) : 0
-    if (!match || !parsedWeek || !parsedDay || !BELL_TIMES[period]) {
-      await sendTelegram(env, chatId, 'Формат: /setlesson непарний пн 1 Предмет | 405')
-      return
-    }
-    if (!match[4].trim() || !match[5].trim() || match[4].trim().length > 160 || match[5].trim().length > 40) {
-      await sendTelegram(env, chatId, 'Предмет: до 160 символів; аудиторія: до 40.')
-      return
-    }
-    await runTelegramMutation(env, update.update_id, `
-      INSERT INTO schedule_entries (week_type, day_key, period, subject, room)
-      SELECT ?, ?, ?, ?, ? WHERE /* once */
-      ON CONFLICT (week_type, day_key, period) DO UPDATE SET
-        teacher = CASE WHEN subject IS NOT excluded.subject THEN NULL ELSE teacher END,
-        dossier = CASE WHEN subject IS NOT excluded.subject THEN NULL ELSE dossier END,
-        route = CASE WHEN room IS NOT excluded.room THEN NULL ELSE route END,
-        subject = excluded.subject, room = excluded.room, updated_at = CURRENT_TIMESTAMP
-    `, [parsedWeek, parsedDay, period, match[4].trim(), match[5].trim()])
-    await sendTelegram(env, chatId, `Оновлено:\n${await scheduleText(env.DB, parsedDay, parsedWeek)}`)
-    return
-  }
-
-  if (command === '/cancel') {
-    const match = text.match(/^\/cancel(?:@\w+)?\s+(\S+)\s+(\S+)\s+(\d+)$/i)
-    const parsedWeek = match ? WEEK_ALIASES[match[1].toLowerCase()] : null
-    const parsedDay = match ? DAY_ALIASES[match[2].toLowerCase()] : null
-    const period = match ? Number(match[3]) : 0
-    if (!match || !parsedWeek || !parsedDay || !BELL_TIMES[period]) {
-      await sendTelegram(env, chatId, 'Формат: /cancel парний пт 4')
-      return
-    }
-    await runTelegramMutation(env, update.update_id, `
-      INSERT INTO schedule_entries (week_type, day_key, period, subject, room)
-      SELECT ?, ?, ?, NULL, NULL WHERE /* once */
-      ON CONFLICT (week_type, day_key, period) DO UPDATE SET
-        subject = NULL, room = NULL, teacher = NULL, dossier = NULL, route = NULL, updated_at = CURRENT_TIMESTAMP
-    `, [parsedWeek, parsedDay, period])
-    await sendTelegram(env, chatId, 'Пару скасовано. Застосунок отримає зміни під час синхронізації.')
-    return
-  }
-
-  if (command === '/homework') {
-    const parts = text.slice(text.indexOf(' ') + 1).split('|').map((part) => part.trim())
-    if (!text.includes(' ') || parts.length !== 3 || parts.some((part) => !part)
-      || !validDate(parts[2]) || parts[0].length > 160 || parts[1].length > 2000) {
-      await sendTelegram(env, chatId, 'Формат: /homework Предмет | Завдання | 2026-09-10')
-      return
-    }
-    await runTelegramMutation(env, update.update_id,
-      'INSERT INTO homework (subject, text, due_date) SELECT ?, ?, ? WHERE /* once */', parts)
-    await sendTelegram(env, chatId, 'Домашнє завдання додано.')
-    return
-  }
-
-  if (command === '/done') {
-    const match = text.match(/^\/done(?:@\w+)?\s+(\d+)$/i)
-    if (!match || !Number.isSafeInteger(Number(match[1]))) {
-      await sendTelegram(env, chatId, 'Формат: /done 12. Номер завдання можна знайти командою /homework.')
-      return
-    }
-    const result = await runTelegramMutation(env, update.update_id,
-      'UPDATE homework SET completed = 1 WHERE id = ? AND completed = 0 AND /* once */', [Number(match[1])])
-    await sendTelegram(env, chatId, result.meta.changes ? 'Завдання завершено.' : 'Активне завдання з таким номером не знайдено.')
-    return
-  }
-
-  await sendTelegram(env, chatId, HELP_TEXT)
+  await sendTelegram(env, chatId, 'Невідома команда. Натисніть /start для виклику меню.');
 }
-
 async function handleApi(request, env, url) {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: JSON_HEADERS })
+    // 1. Rate Limiting Protection
+    const clientIP = request.headers.get('cf-connecting-ip');
+    if (clientIP && isRateLimited(clientIP)) {
+      return new Response('Занадто багато запитів (Rate Limit Exceeded)', { status: 429, headers: JSON_HEADERS });
+    }
+
+  const cors = getCorsHeaders(request, env)
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
+
+  let response;
 
   const scheduleMatch = url.pathname.match(/^\/api\/schedule\/(odd|even)$/)
   if (request.method === 'GET' && scheduleMatch) {
     const dayKey = url.searchParams.get('day')
-    if (dayKey && !DAY_LABELS[dayKey]) return json({ detail: 'Невірний день тижня' }, 422)
-    return json(await getSchedule(env.DB, scheduleMatch[1], dayKey))
+    if (dayKey && !DAY_LABELS[dayKey]) response = json({ detail: 'Невірний день тижня' }, 422)
+    else response = json(await getSchedule(env.DB, scheduleMatch[1], dayKey))
   }
-
-  if (request.method === 'GET' && url.pathname === '/api/homework') {
+  else if (request.method === 'GET' && url.pathname === '/api/homework') {
     const result = await env.DB.prepare('SELECT * FROM homework WHERE completed = 0 ORDER BY due_date, id').all()
-    return json(result.results)
+    response = json(result.results)
   }
-
-  if (request.method === 'POST' && url.pathname === '/api/reports') {
-    const body = await readJson(request)
-
-    if (!body?.text || typeof body.text !== 'string' || !body.text.trim()) {
-      return json({ detail: 'Додайте текст повідомлення' }, 422)
+  else if (request.method === 'POST' && url.pathname === '/api/reports') {
+    const ip = request.headers.get('cf-connecting-ip') || 'unknown'
+    const now = Math.floor(Date.now() / 1000)
+    const key = `report-ip:${ip}`
+    await env.DB.prepare(`
+      INSERT INTO auth_attempts (key, attempts, reset_at) VALUES (?1, 1, ?2)
+      ON CONFLICT(key) DO UPDATE SET
+        attempts = CASE WHEN auth_attempts.reset_at <= ?3 THEN 1 ELSE auth_attempts.attempts + 1 END,
+        reset_at = CASE WHEN auth_attempts.reset_at <= ?3 THEN ?2 ELSE auth_attempts.reset_at END
+    `).bind(key, now + 3600, now).run()
+    
+    const row = await env.DB.prepare('SELECT attempts FROM auth_attempts WHERE key = ?1').bind(key).first()
+    if (Number(row?.attempts || 0) > 3) {
+      response = json({ detail: 'Забагато звітів. Спробуйте пізніше' }, 429)
+    } else {
+      const body = await readJson(request)
+      if (!body?.text || typeof body.text !== 'string' || !body.text.trim()) {
+        response = json({ detail: 'Додайте текст повідомлення' }, 422)
+      } else if (body.text.trim().length > 2000) {
+        response = json({ detail: 'Скоротіть повідомлення до 2000 символів' }, 422)
+      } else {
+        const reportText = body.text.trim()
+        const result = await env.DB.prepare('INSERT INTO error_reports (text, reporter_chat_id) VALUES (?, ?)')
+          .bind(reportText, body.reporter_chat_id ? String(body.reporter_chat_id).slice(0, 64) : null).run()
+        response = json({ id: result.meta.last_row_id, text: reportText }, 201)
+      }
     }
-    const reportText = body.text.trim()
-    if (reportText.length > 2000) return json({ detail: 'Скоротіть повідомлення до 2000 символів' }, 422)
-    const result = await env.DB.prepare('INSERT INTO error_reports (text, reporter_chat_id) VALUES (?, ?)')
-      .bind(reportText, body.reporter_chat_id ? String(body.reporter_chat_id).slice(0, 64) : null).run()
-    return json({ id: result.meta.last_row_id, text: reportText }, 201)
+  } else {
+    response = json({ detail: 'Маршрут API не знайдено' }, 404)
   }
 
-  return json({ detail: 'Маршрут API не знайдено' }, 404)
+  return new Response(response.body, { status: response.status, headers: cors })
 }
 
 export default {

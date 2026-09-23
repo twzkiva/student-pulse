@@ -1,12 +1,22 @@
 <script setup>
 import { InformationCircleIcon, MapPinIcon } from '@heroicons/vue/24/outline'
 
-defineProps({
+const props = defineProps({
   lessons: {
     type: Array,
     required: true,
   },
+  homework: {
+    type: Array,
+    default: () => [],
+  },
 })
+
+function hasHomework(subject) {
+  if (!subject || !props.homework) return false;
+  const sub = subject.toLowerCase();
+  return props.homework.some(hw => hw.subject && hw.subject.toLowerCase() === sub);
+}
 
 defineEmits(['show-info'])
 
@@ -55,11 +65,16 @@ function stateClass(lesson) {
 
         <button
           class="info-button"
+          :class="{ 'has-hw': hasHomework(lesson.subject) }"
           type="button"
           :aria-label="`Докладніше про пару «${lesson.subject}»`"
           @click="$emit('show-info', lesson)"
         >
           <InformationCircleIcon class="h-5 w-5" aria-hidden="true" />
+          <div v-if="hasHomework(lesson.subject)" class="absolute -top-1 -right-1 flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+          </div>
           <span class="sr-only sm:not-sr-only">Інфо</span>
         </button>
       </li>
@@ -175,6 +190,7 @@ function stateClass(lesson) {
 }
 
 .info-button {
+  position: relative;
   display: inline-flex;
   width: 3rem;
   height: 3rem;
@@ -258,4 +274,16 @@ function stateClass(lesson) {
   .period-number { display: none; }
   .lesson-card { gap: 0.55rem; }
 }
+
+.info-button.has-hw {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  border-color: rgba(255, 77, 79, 0.2);
+}
+.info-button.has-hw:hover {
+  background: rgba(255, 77, 79, 0.2);
+  border-color: rgba(255, 77, 79, 0.4);
+  box-shadow: 0 0 12px rgba(255, 77, 79, 0.3);
+}
+
 </style>
